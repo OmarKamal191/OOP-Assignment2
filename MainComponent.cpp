@@ -5,7 +5,7 @@ MainComponent::MainComponent()
     formatManager.registerBasicFormats();
 
     // Add buttons
-    for (auto* btn : { &loadButton, &restartButton , & stopButton})
+    for (auto* btn : { &loadButton, &restartButton , &stopButton , &muteButton})
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
@@ -19,6 +19,21 @@ MainComponent::MainComponent()
 
     setSize(500, 250);
     setAudioChannels(0, 2);
+
+    // Progress Slider 
+    progressSlider.setRange(0.0, 1.0);
+    progressSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    progressSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    progressSlider.addListener(this);
+    addAndMakeVisible(progressSlider);
+
+    // Labels
+    addAndMakeVisible(currentTimeLabel);
+    addAndMakeVisible(totalTimeLabel);
+    currentTimeLabel.setText("0:00", juce::dontSendNotification);
+    totalTimeLabel.setText("0:00", juce::dontSendNotification);
+    startTimer(250);
+
 }
 
 MainComponent::~MainComponent()
@@ -43,19 +58,43 @@ void MainComponent::releaseResources()
 
 void MainComponent::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colours::darkgrey);
+  g.fillAll(juce::Colour::fromRGB(30, 30, 30)); 
+
+  juce::ColourGradient gradient(juce::Colours::darkgrey, 0, 0,
+    juce::Colours::black, 0, (float)getHeight(), false);
+  g.setGradientFill(gradient);
+  g.fillAll();
+
+  g.setColour(juce::Colours::white);
+  g.setFont(24.0f);
+  g.drawFittedText("Simple Audio Player", getLocalBounds().reduced(10), juce::Justification::centredTop, 1);
 }
+
 
 void MainComponent::resized()
 {
-    int y = 20;
-    loadButton.setBounds(20, y, 100, 40);
-    restartButton.setBounds(140, y, 80, 40);
-    stopButton.setBounds(240, y, 80, 40);
-    /*prevButton.setBounds(340, y, 80, 40);
-    nextButton.setBounds(440, y, 80, 40);*/
+    auto area = getLocalBounds().reduced(50);
 
-    volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
+    auto buttonArea = area.removeFromTop(50);
+    int buttonWidth = 100;
+    int spacing = 10;
+    loadButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+    buttonArea.removeFromLeft(spacing);
+    restartButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+    buttonArea.removeFromLeft(spacing);
+    stopButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+    buttonArea.removeFromLeft(spacing);
+    muteButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+
+    /*prevButton.setBounds(340, 20, 80, 40);
+    nextButton.setBounds(440, 20, 80, 40);*/
+
+    area.removeFromTop(20);
+    volumeSlider.setBounds(area.removeFromTop(40));
+
+    progressSlider.setBounds(20, 180, getWidth() - 40, 20);
+    currentTimeLabel.setBounds(20, 210, 60, 20);
+    totalTimeLabel.setBounds(getWidth() - 65, 210, 60, 20);
 }
 
 void MainComponent::buttonClicked(juce::Button* button)
@@ -110,11 +149,45 @@ void MainComponent::buttonClicked(juce::Button* button)
         transportSource.setPosition(0.0);
     }
 
+    if (button == &muteButton)
+    {
+        bool isMuted = transportSource.getGain() == 0.0f;
+        transportSource.setGain(isMuted ? (float)volumeSlider.getValue() : 0.0f);
+		}
 }
 
 void MainComponent::sliderValueChanged(juce::Slider* slider)
 {
-    if (slider == &volumeSlider)
-        transportSource.setGain((float)slider->getValue());
+  if (slider == &volumeSlider)
+    transportSource.setGain((float)slider->getValue());
+
+  if (slider == &progressSlider && readerSource.get() != nullptr)
+  {
+    double total = readerSource->getTotalLength() / readerSource->getAudioFormatReader()->sampleRate;
+    double newPos = progressSlider.getValue() * total;
+    transportSource.setPosition(newPos);
+  }
 }
+
+
+void MainComponent::timerCallback()
+{
+  if (transportSource.isPlaying() && readerSource.get() != nullptr)
+  {
+    double current = transportSource.getCurrentPosition();
+    double total = readerSource->getTotalLength() / readerSource->getAudioFormatReader()->sampleRate;
+
+    progressSlider.setValue(current / total);
+    currentTimeLabel.setText(formatTime(current), juce::dontSendNotification);
+    totalTimeLabel.setText(formatTime(total), juce::dontSendNotification);
+  }
+}
+
+juce::String MainComponent::formatTime(double seconds)
+{
+  int mins = static_cast<int>(seconds / 60);
+  int secs = static_cast<int>(seconds) % 60;
+  return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
+}
+
 
