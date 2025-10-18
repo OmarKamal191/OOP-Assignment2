@@ -140,7 +140,15 @@ void MainComponent::buttonClicked(juce::Button* button)
 
     if (button == &restartButton)
     {
-        transportSource.start();
+        while (true) {
+            if (transportSource.getCurrentPosition() > 0.01)
+            {
+                transportSource.setPosition(0.0);
+            }
+            else {
+				break; 
+			}
+        };
     }
 
     if (button == &stopButton)
