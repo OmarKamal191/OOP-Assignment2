@@ -21,6 +21,9 @@ public:
   void paint(juce::Graphics& g) override;
   void resized() override;
 
+  // repeat flag
+  bool isLooping = false;
+
   // Event handlers
   void buttonClicked(juce::Button* button) override;
   void sliderValueChanged(juce::Slider* slider) override;
