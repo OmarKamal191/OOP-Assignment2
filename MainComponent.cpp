@@ -1,11 +1,10 @@
-﻿#include "MainComponent.h"
-
+#include "MainComponent.h"
 MainComponent::MainComponent()
 {
     formatManager.registerBasicFormats();
 
     // Add buttons
-    for (auto* btn : { &loadButton, &restartButton , &stopButton , &muteButton})
+    for (auto* btn : { &loadButton, &restartButton , &stopButton , &muteButton ,&repeatButton})
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
@@ -52,7 +51,7 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 }
 
 void MainComponent::releaseResources()
-{
+{   
     transportSource.releaseResources();
 }
 
@@ -85,6 +84,8 @@ void MainComponent::resized()
     stopButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
     buttonArea.removeFromLeft(spacing);
     muteButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+	buttonArea.removeFromLeft(spacing);
+	repeatButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
 
     /*prevButton.setBounds(340, 20, 80, 40);
     nextButton.setBounds(440, 20, 80, 40);*/
@@ -162,6 +163,22 @@ void MainComponent::buttonClicked(juce::Button* button)
         bool isMuted = transportSource.getGain() == 0.0f;
         transportSource.setGain(isMuted ? (float)volumeSlider.getValue() : 0.0f);
 		}
+
+    if (button == &repeatButton)
+    {
+        if (readerSource.get() != nullptr) {
+
+            isLooping = !isLooping;
+
+            readerSource->setLooping(isLooping);
+
+            if (isLooping)
+                repeatButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+            else
+                repeatButton.removeColour(juce::TextButton::buttonColourId);
+        }
+        
+    }
 }
 
 void MainComponent::sliderValueChanged(juce::Slider* slider)
@@ -197,5 +214,4 @@ juce::String MainComponent::formatTime(double seconds)
   int secs = static_cast<int>(seconds) % 60;
   return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
 }
-
 
