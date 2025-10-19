@@ -21,6 +21,7 @@ public:
   void paint(juce::Graphics& g) override;
   void resized() override;
 
+
   // Event handlers
   void buttonClicked(juce::Button* button) override;
   void sliderValueChanged(juce::Slider* slider) override;
@@ -35,8 +36,9 @@ private:
   juce::TextButton loadButton{ "Load Files" };
   juce::TextButton restartButton{ "Restart" };
   juce::TextButton stopButton{ "Stop" };
-  juce::TextButton muteButton{ "Mute" };
+  juce::TextButton muteButton{ "Mute:off" };
   juce::Slider volumeSlider;
+  juce::ToggleButton repeatButton{ "Repeat" };
 
   juce::Slider progressSlider;
   juce::Label currentTimeLabel;
