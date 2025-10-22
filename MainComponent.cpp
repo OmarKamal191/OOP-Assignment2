@@ -1,11 +1,10 @@
-﻿#include "MainComponent.h"
-
+#include "MainComponent.h"
 MainComponent::MainComponent()
 {
     formatManager.registerBasicFormats();
 
     // Add buttons
-    for (auto* btn : { &loadButton, &restartButton , &stopButton , &muteButton, &pauseButton, &rewindButton, &endButton })
+    for (auto* btn : { &loadButton , &restartButton , &stopButton , &muteButton })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
@@ -34,16 +33,47 @@ MainComponent::MainComponent()
     totalTimeLabel.setText("0:00", juce::dontSendNotification);
     startTimer(250);
 
-    // Set button names
-    loadButton.setButtonText("Load");
-    restartButton.setButtonText("Restart");
-    stopButton.setButtonText("Stop");
-    muteButton.setButtonText("Mute");
-    pauseButton.setButtonText(">");
-    rewindButton.setButtonText("<<");
-    endButton.setButtonText(">>");
+    //Toggle button for repeat
+    repeatButton.addListener(this);
+    addAndMakeVisible(repeatButton);
+
+    // || pause 
+    juce::Path pausePath;
+    pausePath.addRectangle(0.0f, 0.0f, 6.0f, 20.0f);
+    pausePath.addRectangle(14.0f, 0.0f, 6.0f, 20.0f);
+    pauseButtonIcon = makeIcon(pausePath, juce::Colours::white);
+
+    //  ▶ play
+    juce::Path testPath;
+    testPath.addTriangle(0.0f, 0.0f, 20.0f, 10.0f, 0.0f, 20.0f);
+    playIcon = makeIcon(testPath, juce::Colours::white);
+
+    // ⏭ toEnd
+    juce::Path toEndPath;
+    toEndPath.addTriangle(0.0f, 0.0f, 10.0f, 10.0f, 0.0f, 20.0f);
+    toEndPath.addRectangle(12.0f, 0.0f, 4.0f, 20.0f);
+    toEndIcon = makeIcon(toEndPath, juce::Colours::white);
+
+    // ⏮ toStart
+    juce::Path toStartPath;
+    toStartPath.addRectangle(0.0f, 0.0f, 4.0f, 20.0f);
+    toStartPath.addTriangle(16.0f, 0.0f, 6.0f, 10.0f, 16.0f, 20.0f);
+    toStartIcon = makeIcon(toStartPath, juce::Colours::white);
 
 
+    // create buttons 
+    ppButton.setImages(pauseButtonIcon.get());
+    toEndButton.setImages(toEndIcon.get());
+    toStartButton.setImages(toStartIcon.get());
+
+
+    // Add Drawable buttons
+
+    for (auto* btn : { &ppButton , &toEndButton , &toStartButton })
+    {
+        btn->addListener(this);
+        addAndMakeVisible(btn);
+    }
 }
 
 MainComponent::~MainComponent()
@@ -85,41 +115,41 @@ void MainComponent::resized()
 {
     auto area = getLocalBounds().reduced(50);
 
-    auto topButtons = area.removeFromTop(50);
-    int buttonWidth = 100;
+    auto buttonArea = area.removeFromTop(50);
+    int buttonWidth = 85;
     int spacing = 10;
+    loadButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+    buttonArea.removeFromLeft(spacing);
+    restartButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+    buttonArea.removeFromLeft(spacing);
+    stopButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
+    buttonArea.removeFromLeft(spacing);
+    muteButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
 
-    loadButton.setBounds(topButtons.removeFromLeft(buttonWidth));
-    topButtons.removeFromLeft(spacing);
-    restartButton.setBounds(topButtons.removeFromLeft(buttonWidth));
-    topButtons.removeFromLeft(spacing);
-    stopButton.setBounds(topButtons.removeFromLeft(buttonWidth));
-    topButtons.removeFromLeft(spacing);
-    muteButton.setBounds(topButtons.removeFromLeft(buttonWidth));
+    /*prevButton.setBounds(340, 20, 80, 40);
+    nextButton.setBounds(440, 20, 80, 40);*/
 
     area.removeFromTop(20);
     volumeSlider.setBounds(area.removeFromTop(40));
 
-    area.removeFromTop(40);
-
-    int smallButtonWidth = 80;
-    int smallButtonHeight = 40;
-    int spacingBetween = 40;
-
-    int totalWidth = (smallButtonWidth * 3) + (spacingBetween * 2);
-    int startX = (getWidth() - totalWidth) / 2;
-    int yPos = area.getY();
-
-    rewindButton.setBounds(startX, yPos, smallButtonWidth, smallButtonHeight);
-    pauseButton.setBounds(startX + smallButtonWidth + spacingBetween, yPos, smallButtonWidth, smallButtonHeight);
-    endButton.setBounds(startX + (smallButtonWidth + spacingBetween) * 2, yPos, smallButtonWidth, smallButtonHeight);
-
     progressSlider.setBounds(20, 180, getWidth() - 40, 20);
     currentTimeLabel.setBounds(20, 210, 60, 20);
     totalTimeLabel.setBounds(getWidth() - 65, 210, 60, 20);
+    repeatButton.setBounds(getWidth() - 160, 200, buttonWidth, 40);
+
+    // Control Buttons
+    int smallButtonWidth = 70;
+    int smallButtonHeight = 40;
+    int spacingBetween = 20;
+
+    int totalWidth = (smallButtonWidth * 3) + (spacingBetween * 2);
+    int startX = (getWidth() - totalWidth) / 2;
+    int yPos = area.getY() + 50;
+
+    ppButton.setBounds(startX + smallButtonWidth + spacingBetween, yPos, smallButtonWidth, smallButtonHeight);
+    toEndButton.setBounds(startX + (smallButtonWidth + spacingBetween) * 3 + 20, yPos, smallButtonWidth, smallButtonHeight);
+    toStartButton.setBounds(startX - (smallButtonWidth + spacingBetween) - 20, yPos, smallButtonWidth, smallButtonHeight);
 }
-
-
 
 void MainComponent::buttonClicked(juce::Button* button)
 {
@@ -157,8 +187,6 @@ void MainComponent::buttonClicked(juce::Button* button)
                             nullptr,
                             reader->sampleRate);
                         transportSource.start();
-                        pauseButton.setButtonText("||");
-
                     }
                 }
             });
@@ -166,57 +194,68 @@ void MainComponent::buttonClicked(juce::Button* button)
 
     if (button == &restartButton)
     {
-        if (readerSource != nullptr)
-        {
-            transportSource.stop();
-            transportSource.setPosition(0.0);
-            transportSource.start();
-            pauseButton.setButtonText("||");
-        }
+        transportSource.stop();
+        transportSource.setPosition(0.0);
+        transportSource.start();
     }
-
 
     if (button == &stopButton)
     {
         transportSource.stop();
         transportSource.setPosition(0.0);
-        pauseButton.setButtonText(">");
+        ppButton.setImages(playIcon.get());
     }
 
     if (button == &muteButton)
     {
         bool isMuted = transportSource.getGain() == 0.0f;
         transportSource.setGain(isMuted ? (float)volumeSlider.getValue() : 0.0f);
+        if (isMuted) {
+            muteButton.setButtonText("Mute");
+            muteButton.removeColour(juce::TextButton::buttonColourId);
+        }
+        else {
+            muteButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+            muteButton.setButtonText("Unmute");
+        }
     }
-    if (button == &pauseButton)
+
+    if (button == &repeatButton)
     {
-        if (readerSource == nullptr)
-            return;
+        if (readerSource.get() != nullptr) {
 
-        if (transportSource.isPlaying())
-        {
-            transportSource.stop();
-            pauseButton.setButtonText(">");
+            bool shouldLooping = repeatButton.getToggleState();
+
+            readerSource->setLooping(shouldLooping);
         }
-        else
-        {
-            transportSource.start();
-            pauseButton.setButtonText("||");
+
+    }
+    if (button == &ppButton)
+    {
+        if (readerSource != nullptr) {
+            if (transportSource.isPlaying())
+            {
+                transportSource.stop();
+                ppButton.setImages(playIcon.get());
+            }
+            else
+            {
+                transportSource.start();
+                ppButton.setImages(pauseButtonIcon.get());
+            }
         }
     }
-
-    if (button == &rewindButton)
+    if (button == &toStartButton)
     {
         if (readerSource != nullptr)
         {
             transportSource.setPosition(0.0);
             transportSource.start();
-            pauseButton.setButtonText("||");
         }
     }
 
 
-    if (button == &endButton)
+    if (button == &toEndButton)
     {
         if (readerSource != nullptr)
         {
@@ -226,22 +265,15 @@ void MainComponent::buttonClicked(juce::Button* button)
             currentTimeLabel.setText(formatTime(total), juce::dontSendNotification);
         }
     }
-
-
-    if (button == &stopButton)
-    {
-        transportSource.stop();
-        transportSource.setPosition(0.0);
-        pauseButton.setButtonText(">");
-    }
-
-
 }
 
 void MainComponent::sliderValueChanged(juce::Slider* slider)
 {
-    if (slider == &volumeSlider)
+    if (slider == &volumeSlider) {
         transportSource.setGain((float)slider->getValue());
+        muteButton.setButtonText("Mute");
+        muteButton.removeColour(juce::TextButton::buttonColourId);
+    }
 
     if (slider == &progressSlider && readerSource.get() != nullptr)
     {
