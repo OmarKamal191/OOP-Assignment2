@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <JuceHeader.h>
 #include <vector>
@@ -21,9 +21,19 @@ public:
 	void paint(juce::Graphics& g) override;
 	void resized() override;
 
+
 	// Event handlers
 	void buttonClicked(juce::Button* button) override;
 	void sliderValueChanged(juce::Slider* slider) override;
+
+	// make icon for testButton
+	std::unique_ptr<juce::DrawablePath> makeIcon(juce::Path& path, juce::Colour colour)
+	{
+		auto drawablepath = std::make_unique<juce::DrawablePath>();
+		drawablepath->setPath(path);
+		drawablepath->setFill(colour);
+		return drawablepath;
+	}
 
 private:
 	// Audio
@@ -36,11 +46,20 @@ private:
 	juce::TextButton restartButton{ "Restart" };
 	juce::TextButton stopButton{ "Stop" };
 	juce::TextButton muteButton{ "Mute" };
-	juce::TextButton pauseButton{ "Pause" };
-	juce::TextButton rewindButton{ " Start" };
-	juce::TextButton endButton{ "End " };
-
 	juce::Slider volumeSlider;
+	juce::ToggleButton repeatButton{ "Repeat" };
+	juce::TextButton rewindButton{ "|<" };
+	juce::TextButton endButton{ ">|" };
+	juce::DrawableButton ppButton{ "Play&Pause", juce::DrawableButton::ImageFitted };
+	juce::DrawableButton toEndButton{ "toEnd", juce::DrawableButton::ImageFitted };
+	juce::DrawableButton toStartButton{ "toStart", juce::DrawableButton::ImageFitted };
+
+	// Icons for Buttons
+	std::unique_ptr<juce::DrawablePath> playIcon; // Icon for play
+	std::unique_ptr<juce::DrawablePath> pauseButtonIcon; // Icon for pause
+	std::unique_ptr<juce::DrawablePath> toEndIcon; // Icon for toEnd
+	std::unique_ptr<juce::DrawablePath> toStartIcon; // Icon for toStrat
+
 
 	juce::Slider progressSlider;
 	juce::Label currentTimeLabel;
