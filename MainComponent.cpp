@@ -49,31 +49,46 @@ MainComponent::MainComponent()
     playIcon = makeIcon(testPath, juce::Colours::white);
 
     // ⏭ toEnd
-    juce::Path toEndPath;
-    toEndPath.addTriangle(0.0f, 0.0f, 10.0f, 10.0f, 0.0f, 20.0f);
-    toEndPath.addRectangle(12.0f, 0.0f, 4.0f, 20.0f);
-    toEndIcon = makeIcon(toEndPath, juce::Colours::white);
+	juce::Path toEndPath;
+	toEndPath.addTriangle(0.0f, 0.0f, 10.0f, 10.0f, 0.0f, 20.0f);
+	toEndPath.addRectangle(12.0f, 0.0f, 4.0f, 20.0f);
+	toEndIcon = makeIcon(toEndPath, juce::Colours::white);
 
-    // ⏮ toStart
-    juce::Path toStartPath;
-    toStartPath.addRectangle(0.0f, 0.0f, 4.0f, 20.0f);
-    toStartPath.addTriangle(16.0f, 0.0f, 6.0f, 10.0f, 16.0f, 20.0f);
-    toStartIcon = makeIcon(toStartPath, juce::Colours::white);
+	// ⏮ toStart
+	juce::Path toStartPath;
+	toStartPath.addRectangle(0.0f, 0.0f, 4.0f, 20.0f);
+	toStartPath.addTriangle(16.0f, 0.0f, 6.0f, 10.0f, 16.0f, 20.0f);
+	toStartIcon = makeIcon(toStartPath, juce::Colours::white);
 
+    // Add 10s 
+	juce::Path fw10Path;
+    fw10Path.addTriangle(0.0f, 0.0f, 10.0f, 10.0f, 0.0f, 20.0f);
+    fw10Path.addTriangle(12.0f, 0.0f, 22.0f, 10.0f, 12.0f, 20.0f);
+	fw10Icon = makeIcon(fw10Path, juce::Colours::white);
 
-    // create buttons 
+	// Subtract 10s
+	juce::Path bw10Path;
+    bw10Path.addTriangle(22.0f, 0.0f, 12.0f, 10.0f, 22.0f, 20.0f);
+    bw10Path.addTriangle(10.0f, 0.0f, 0.0f, 10.0f, 10.0f, 20.0f);
+	bw10Icon = makeIcon(bw10Path, juce::Colours::white);
+
+    
+
+	// create buttons 
     ppButton.setImages(pauseButtonIcon.get());
-    toEndButton.setImages(toEndIcon.get());
-    toStartButton.setImages(toStartIcon.get());
+	toEndButton.setImages(toEndIcon.get());
+	toStartButton.setImages(toStartIcon.get());
+	fw10Button.setImages(fw10Icon.get());
+	bw10Button.setImages(bw10Icon.get());
 
 
     // Add Drawable buttons
 
-    for (auto* btn : { &ppButton , &toEndButton , &toStartButton })
+    for(auto* btn : { &ppButton , &toEndButton , &toStartButton , &fw10Button , &bw10Button })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
-    }
+	}
 }
 
 MainComponent::~MainComponent()
@@ -137,18 +152,20 @@ void MainComponent::resized()
     totalTimeLabel.setBounds(getWidth() - 65, 210, 60, 20);
     repeatButton.setBounds(getWidth() - 160, 200, buttonWidth, 40);
 
-    // Control Buttons
+	// Control Buttons
     int smallButtonWidth = 70;
     int smallButtonHeight = 40;
     int spacingBetween = 20;
 
     int totalWidth = (smallButtonWidth * 3) + (spacingBetween * 2);
     int startX = (getWidth() - totalWidth) / 2;
-    int yPos = area.getY() + 50;
+    int yPos = area.getY()+50;
 
     ppButton.setBounds(startX + smallButtonWidth + spacingBetween, yPos, smallButtonWidth, smallButtonHeight);
     toEndButton.setBounds(startX + (smallButtonWidth + spacingBetween) * 3 + 20, yPos, smallButtonWidth, smallButtonHeight);
     toStartButton.setBounds(startX - (smallButtonWidth + spacingBetween) - 20, yPos, smallButtonWidth, smallButtonHeight);
+    bw10Button.setBounds(startX, yPos, smallButtonWidth, smallButtonHeight);
+    fw10Button.setBounds(startX + (smallButtonWidth + spacingBetween) * 2, yPos, smallButtonWidth, smallButtonHeight);
 }
 
 void MainComponent::buttonClicked(juce::Button* button)
@@ -194,9 +211,9 @@ void MainComponent::buttonClicked(juce::Button* button)
 
     if (button == &restartButton)
     {
-        transportSource.stop();
+		transportSource.stop();
         transportSource.setPosition(0.0);
-        transportSource.start();
+		transportSource.start();
     }
 
     if (button == &stopButton)
@@ -263,6 +280,27 @@ void MainComponent::buttonClicked(juce::Button* button)
             transportSource.setPosition(total);
             progressSlider.setValue(1.0);
             currentTimeLabel.setText(formatTime(total), juce::dontSendNotification);
+        }
+    }
+    if (button == &fw10Button)
+    {
+        if (readerSource != nullptr)
+        {
+            double current = transportSource.getCurrentPosition();
+            double newPos = current + 10.0;
+            transportSource.setPosition(newPos);
+        }
+    }
+
+    if (button == &bw10Button)
+    {
+        if (readerSource != nullptr)
+        {
+            double current = transportSource.getCurrentPosition();
+            double newPos = current - 10.0;
+            if (newPos < 0.0)
+                newPos = 0.0;
+            transportSource.setPosition(newPos);
         }
     }
 }
