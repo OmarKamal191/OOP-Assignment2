@@ -1,79 +1,34 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <vector>
+#include "PlayerGUI.h"
+#include "PlayerAudio.h"
 
-class MainComponent : public juce::AudioAppComponent,
-	public juce::Button::Listener,
-	public juce::Slider::Listener,
-	private juce::Timer
+class MainComponent : public juce::AudioAppComponent
 {
 public:
-	MainComponent();
-	~MainComponent() override;
+  MainComponent();
+  ~MainComponent() override;
 
-	// Audio
-	void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-	void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
-	void releaseResources() override;
+  // Audio
+  void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
+  void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
+  void releaseResources() override;
 
-	// GUI
-	void paint(juce::Graphics& g) override;
-	void resized() override;
+  // GUI
+  void paint(juce::Graphics& g) override;
+  void resized() override;
 
+  // keep these function names (MainComponent will forward to gui)
+  void buttonClicked(juce::Button* button);
+  void sliderValueChanged(juce::Slider* slider);
+  void timerCallback();
 
-	// Event handlers
-	void buttonClicked(juce::Button* button) override;
-	void sliderValueChanged(juce::Slider* slider) override;
-
-	// make icon for testButton
-	std::unique_ptr<juce::DrawablePath> makeIcon(juce::Path& path, juce::Colour colour)
-	{
-		auto drawablepath = std::make_unique<juce::DrawablePath>();
-		drawablepath->setPath(path);
-		drawablepath->setFill(colour);
-		return drawablepath;
-	}
+  juce::String formatTime(double seconds);
 
 private:
-	// Audio
-	juce::AudioFormatManager formatManager;
-	std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
-	juce::AudioTransportSource transportSource;
+  PlayerGUI gui;
+  PlayerAudio audio;
 
-	// GUI Controls
-	juce::TextButton loadButton{ "Load Files" };
-	juce::TextButton restartButton{ "Restart" };
-	juce::TextButton stopButton{ "Stop" };
-	juce::TextButton muteButton{ "Mute" };
-	juce::Slider volumeSlider;
-	juce::ToggleButton repeatButton{ "Repeat" };
-	juce::TextButton rewindButton{ "|<" };
-	juce::TextButton endButton{ ">|" };
-	juce::DrawableButton ppButton{ "Play&Pause", juce::DrawableButton::ImageFitted };
-	juce::DrawableButton toEndButton{ "toEnd", juce::DrawableButton::ImageFitted };
-	juce::DrawableButton toStartButton{ "toStart", juce::DrawableButton::ImageFitted };
-	juce::DrawableButton fw10Button{ "Add 10s", juce::DrawableButton::ImageFitted };
-	juce::DrawableButton bw10Button{ "Sub 10s", juce::DrawableButton::ImageFitted };
-
-	// Icons for Buttons
-	std::unique_ptr<juce::DrawablePath> playIcon; // Icon for play
-	std::unique_ptr<juce::DrawablePath> pauseButtonIcon; // Icon for pause
-	std::unique_ptr<juce::DrawablePath> toEndIcon; // Icon for toEnd
-	std::unique_ptr<juce::DrawablePath> toStartIcon; // Icon for toStrat
-	std::unique_ptr<juce::DrawablePath> fw10Icon; // Icon for fw10
-	std::unique_ptr<juce::DrawablePath> bw10Icon; // Icon for bw10
-
-
-	juce::Slider progressSlider;
-	juce::Label currentTimeLabel;
-	juce::Label totalTimeLabel;
-
-	void timerCallback() override;
-
-	juce::String formatTime(double seconds);
-
-	std::unique_ptr<juce::FileChooser> fileChooser;
-
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
