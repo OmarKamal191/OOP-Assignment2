@@ -53,12 +53,16 @@ private:
 	juce::DrawableButton ppButton{ "Play&Pause", juce::DrawableButton::ImageFitted };
 	juce::DrawableButton toEndButton{ "toEnd", juce::DrawableButton::ImageFitted };
 	juce::DrawableButton toStartButton{ "toStart", juce::DrawableButton::ImageFitted };
+	juce::DrawableButton fw10Button{ "Add 10s", juce::DrawableButton::ImageFitted };
+	juce::DrawableButton bw10Button{ "Sub 10s", juce::DrawableButton::ImageFitted };
 
 	// Icons for Buttons
 	std::unique_ptr<juce::DrawablePath> playIcon; // Icon for play
 	std::unique_ptr<juce::DrawablePath> pauseButtonIcon; // Icon for pause
 	std::unique_ptr<juce::DrawablePath> toEndIcon; // Icon for toEnd
 	std::unique_ptr<juce::DrawablePath> toStartIcon; // Icon for toStrat
+	std::unique_ptr<juce::DrawablePath> fw10Icon; // Icon for fw10
+	std::unique_ptr<juce::DrawablePath> bw10Icon; // Icon for bw10
 
 
 	juce::Slider progressSlider;
