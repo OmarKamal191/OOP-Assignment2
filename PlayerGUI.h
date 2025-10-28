@@ -11,7 +11,8 @@ public:
   PlayerGUI();
   ~PlayerGUI() override;
 
-  void setAudio(PlayerAudio* audioPtr) noexcept { audio = audioPtr; }
+  // setAudio now implemented in cpp so we can build the thumbnail when audio is provided
+  void setAudio(PlayerAudio* audioPtr) noexcept;
 
   void paint(juce::Graphics& g) override;
   void resized() override;
@@ -20,6 +21,9 @@ public:
   void buttonClicked(juce::Button* button) override;
   void sliderValueChanged(juce::Slider* slider) override;
   void timerCallback() override;
+
+  // allow clicking on waveform to seek
+  void mouseDown(const juce::MouseEvent& event) override;
 
   // copy of makeIcon - same signature as original
   std::unique_ptr<juce::DrawablePath> makeIcon(juce::Path& path, juce::Colour colour)
@@ -58,7 +62,17 @@ public:
   juce::ToggleButton repeatToggle{ "Repeat" }; // local duplicate name avoided; use repeatButton in original code was ToggleButton named repeatButton
   juce::ToggleButton repeatButton2{ "Repeat" }; // (not used) kept to avoid renaming confusion
 
+  // New: speed control
+  juce::Slider speedSlider;    // 0.25x .. 2.0x (default 1.0)
+
 private:
   PlayerAudio* audio = nullptr;
+
+  // Waveform thumbnail + cache
+  std::unique_ptr<juce::AudioThumbnailCache> thumbnailCache;
+  std::unique_ptr<juce::AudioThumbnail> thumbnail;
+  juce::File lastLoadedFile;
+  juce::Rectangle<int> waveformBounds;
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGUI)
 };

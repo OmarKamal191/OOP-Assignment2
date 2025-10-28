@@ -24,8 +24,8 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
-  if (auto* transport = audio.getTransportSource())
-    transport->getNextAudioBlock(bufferToFill);
+  if (auto* source = audio.getAudioSource())
+    source->getNextAudioBlock(bufferToFill);
   else
     bufferToFill.clearActiveBufferRegion();
 }

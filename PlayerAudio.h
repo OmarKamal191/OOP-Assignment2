@@ -26,14 +26,33 @@ public:
   bool isPlaying() const;
   void setLooping(bool shouldLoop);
 
-  juce::AudioTransportSource* getTransportSource() noexcept { return &transportSource; }
+  // Speed control (1.0 = normal) - optional if you kept earlier changes
+  void setSpeed(double ratio);
+  double getSpeed() const noexcept { return speedRatio; }
+
   juce::AudioFormatManager* getFormatManager() noexcept { return &formatManager; }
   juce::AudioFormatReaderSource* getReaderSource() const noexcept { return readerSource.get(); }
+
+  // Returns the top-most AudioSource that should be queried for audio blocks.
+  juce::AudioSource* getAudioSource() noexcept;
+
+  // Expose the last loaded file so GUI can build a thumbnail
+  juce::File getCurrentFile() const noexcept { return currentFile; }
+
+  // kept for compatibility (returns the transport directly)
+  juce::AudioTransportSource* getTransportSource() noexcept { return &transportSource; }
 
 private:
   juce::AudioFormatManager formatManager;
   std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
   juce::AudioTransportSource transportSource;
 
+  // Resampler -- may be null if not prepared
+  std::unique_ptr<juce::ResamplingAudioSource> resamplingSource;
+  double speedRatio = 1.0;
+
   std::unique_ptr<juce::FileChooser> fileChooser;
+
+  // store the file currently loaded (empty if none)
+  juce::File currentFile;
 };
