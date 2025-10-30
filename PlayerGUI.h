@@ -65,6 +65,9 @@ public:
   // New: speed control
   juce::Slider speedSlider;    // 0.25x .. 2.0x (default 1.0)
 
+  // New: Sleep Timer button (placed next to Mute)
+  juce::TextButton sleepTimerButton{ "Sleep Timer" };
+
 private:
   PlayerAudio* audio = nullptr;
 
@@ -73,6 +76,10 @@ private:
   std::unique_ptr<juce::AudioThumbnail> thumbnail;
   juce::File lastLoadedFile;
   juce::Rectangle<int> waveformBounds;
+
+  // Sleep timer state
+  bool sleepTimerActive = false;
+  juce::Time sleepTimerEnd;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGUI)
 };

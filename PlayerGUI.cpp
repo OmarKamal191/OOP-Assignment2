@@ -8,6 +8,10 @@ PlayerGUI::PlayerGUI()
     addAndMakeVisible(btn);
   }
 
+  // Sleep Timer button (next to Mute)
+  sleepTimerButton.addListener(this);
+  addAndMakeVisible(sleepTimerButton);
+
   volumeSlider.setRange(0.0, 1.0, 0.01);
   volumeSlider.setValue(0.5);
   volumeSlider.addListener(this);
@@ -91,6 +95,10 @@ PlayerGUI::~PlayerGUI()
   stopTimer();
   for (auto* btn : { &loadButton , &restartButton , &stopButton , &muteButton })
     btn->removeListener(this);
+
+  // remove Sleep Timer listener
+  sleepTimerButton.removeListener(this);
+  removeChildComponent(&sleepTimerButton);
 
   for (auto* btn : { &ppButton , &toEndButton , &toStartButton , &fw10Button , &bw10Button })
     btn->removeListener(this);
@@ -184,6 +192,9 @@ void PlayerGUI::resized()
   buttonArea.removeFromLeft(spacing);
   muteButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
 
+  // Place the Sleep Timer button directly to the right of the Mute button
+  buttonArea.removeFromLeft(spacing);
+  sleepTimerButton.setBounds(buttonArea.removeFromLeft(buttonWidth));
   area.removeFromTop(20);
   volumeSlider.setBounds(area.removeFromTop(40));
 
@@ -321,6 +332,47 @@ void PlayerGUI::buttonClicked(juce::Button* button)
       audio->setPosition(newPos);
     }
   }
+
+  // Sleep Timer button handling
+  if (button == &sleepTimerButton)
+  {
+    juce::PopupMenu menu;
+    menu.addItem(1, "1 minute");
+    menu.addItem(2, "2 minutes");
+    menu.addItem(5, "5 minutes");
+    menu.addItem(10, "10 minutes");
+    menu.addItem(15, "15 minutes");
+    menu.addItem(20, "20 minutes");
+    menu.addItem(30, "30 minutes");
+    menu.addSeparator();
+    menu.addItem(1000, "Cancel sleep timer");
+
+      // showMenuAsync to avoid using the non-existent synchronous show() method
+    juce::Component::SafePointer<PlayerGUI> safe(this);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this),
+      [safe](int choice)
+      {
+        if (auto* p = safe.getComponent())
+        {
+          if (choice > 0 && choice != 1000)
+          {
+            // start timer for choice minutes
+            p->sleepTimerEnd = juce::Time::getCurrentTime() + juce::RelativeTime::minutes(choice);
+            p->sleepTimerActive = true;
+
+            // update button text to show initial countdown
+            auto secs = choice * 60;
+            p->sleepTimerButton.setButtonText("Sleep: " + p->formatTime(secs));
+          }
+          else if (choice == 1000)
+          {
+            // cancel
+            p->sleepTimerActive = false;
+            p->sleepTimerButton.setButtonText("Sleep Timer");
+          }
+        }
+      });
+  }
 }
 
 void PlayerGUI::sliderValueChanged(juce::Slider* slider)
@@ -372,6 +424,29 @@ void PlayerGUI::timerCallback()
       progressSlider.setValue(current / total);
       currentTimeLabel.setText(formatTime(current), juce::dontSendNotification);
       totalTimeLabel.setText(formatTime(total), juce::dontSendNotification);
+    }
+  }
+
+  // Sleep timer update and enforcement
+  if (sleepTimerActive)
+  {
+    auto now = juce::Time::getCurrentTime();
+    if (now >= sleepTimerEnd)
+    {
+      // stop playback regardless of looping
+      if (audio != nullptr)
+      {
+        audio->stop();
+        ppButton.setImages(playIcon.get());
+      }
+      sleepTimerActive = false;
+      sleepTimerButton.setButtonText("Sleep Timer");
+    }
+    else
+    {
+      auto remainingSeconds = static_cast<int>((sleepTimerEnd.toMilliseconds() - now.toMilliseconds()) / 1000);
+      if (remainingSeconds < 0) remainingSeconds = 0;
+      sleepTimerButton.setButtonText("Sleep: " + formatTime(remainingSeconds));
     }
   }
 
