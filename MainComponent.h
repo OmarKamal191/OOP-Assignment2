@@ -1,55 +1,34 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include <vector>
+#include "PlayerGUI.h"
+#include "PlayerAudio.h"
 
-class MainComponent : public juce::AudioAppComponent,
-  public juce::Button::Listener,
-  public juce::Slider::Listener,
-  private juce::Timer 
+class MainComponent : public juce::AudioAppComponent
 {
 public:
-  MainComponent();
-  ~MainComponent() override;
+	MainComponent();
+	~MainComponent() override;
 
-  // Audio
-  void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
-  void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
-  void releaseResources() override;
+	// Audio
+	void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
+	void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
+	void releaseResources() override;
 
-  // GUI
-  void paint(juce::Graphics& g) override;
-  void resized() override;
+	// GUI
+	void paint(juce::Graphics& g) override;
+	void resized() override;
 
-  // repeat flag
-  bool isLooping = false;
+	// keep these function names (MainComponent will forward to gui)
+	void buttonClicked(juce::Button* button);
+	void sliderValueChanged(juce::Slider* slider);
+	void timerCallback();
 
-  // Event handlers
-  void buttonClicked(juce::Button* button) override;
-  void sliderValueChanged(juce::Slider* slider) override;
+	juce::String formatTime(double seconds);
 
 private:
-  // Audio
-  juce::AudioFormatManager formatManager;
-  std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
-  juce::AudioTransportSource transportSource;
+	PlayerGUI gui;
+	PlayerAudio audio;
 
-  // GUI Controls
-  juce::TextButton loadButton{ "Load Files" };
-  juce::TextButton restartButton{ "Restart" };
-  juce::TextButton stopButton{ "Stop" };
-  juce::TextButton muteButton{ "Mute" };
-  juce::Slider volumeSlider;
-
-  juce::Slider progressSlider;
-  juce::Label currentTimeLabel;
-  juce::Label totalTimeLabel;
-
-  void timerCallback() override;
-
-  juce::String formatTime(double seconds);
-
-  std::unique_ptr<juce::FileChooser> fileChooser;
-
-  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
