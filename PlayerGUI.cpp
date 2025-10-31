@@ -435,7 +435,7 @@ void PlayerGUI::buttonClicked(juce::Button* button)
             settingLoopPoint = LoopPointState::None;
 
             // إعادة الزر للحالة الافتراضية
-            loopRegionButton.setButtonText("Loop Region");
+            loopRegionButton.setButtonText("Repeat a Track");
             loopRegionButton.removeColour(juce::TextButton::buttonColourId);
 
             // تحديث حالة الصوت لإلغاء التكرار

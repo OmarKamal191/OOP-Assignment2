@@ -48,7 +48,7 @@ public:
     juce::DrawableButton toStartButton{ "toStart", juce::DrawableButton::ImageFitted };
     juce::DrawableButton fw10Button{ "Add 10s", juce::DrawableButton::ImageFitted };
     juce::DrawableButton bw10Button{ "Sub 10s", juce::DrawableButton::ImageFitted };
-    juce::TextButton loopRegionButton{ "Loop Region" };
+    juce::TextButton loopRegionButton{ "Repeat a Track" };
 
     std::unique_ptr<juce::DrawablePath> playIcon; // Icon for play
     std::unique_ptr<juce::DrawablePath> pauseButtonIcon; // Icon for pause
