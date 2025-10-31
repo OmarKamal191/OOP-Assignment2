@@ -1,69 +1,69 @@
-﻿#include "MainComponent.h"
+#include "MainComponent.h"
 
 MainComponent::MainComponent()
 {
-  // connect GUI and Audio
-  addAndMakeVisible(gui);
-  gui.setAudio(&audio);
+    // connect GUI and Audio
+    addAndMakeVisible(gui);
+    gui.setAudio(&audio);
 
-  setSize(500, 250);
-  setAudioChannels(0, 2);
+    setSize(500, 250);
+    setAudioChannels(0, 2);
 
-  // The GUI already registered listeners for its controls.
+    // The GUI already registered listeners for its controls.
 }
 
 MainComponent::~MainComponent()
 {
-  shutdownAudio();
+    shutdownAudio();
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
-  audio.prepareToPlay(samplesPerBlockExpected, sampleRate);
+    audio.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
-  if (auto* source = audio.getAudioSource())
-    source->getNextAudioBlock(bufferToFill);
-  else
-    bufferToFill.clearActiveBufferRegion();
+    if (auto* source = audio.getAudioSource())
+        source->getNextAudioBlock(bufferToFill);
+    else
+        bufferToFill.clearActiveBufferRegion();
 }
 
 void MainComponent::releaseResources()
 {
-  audio.releaseResources();
+    audio.releaseResources();
 }
 
 void MainComponent::paint(juce::Graphics& g)
 {
-  gui.paint(g); // delegate painting to gui (keeps same appearance)
+    gui.paint(g); // delegate painting to gui (keeps same appearance)
 }
 
 void MainComponent::resized()
 {
-  gui.setBounds(getLocalBounds());
+    gui.setBounds(getLocalBounds());
 }
 
 void MainComponent::buttonClicked(juce::Button* button)
 {
-  // forward to gui
-  gui.buttonClicked(button);
+    // forward to gui
+    gui.buttonClicked(button);
 }
 
 void MainComponent::sliderValueChanged(juce::Slider* slider)
 {
-  gui.sliderValueChanged(slider);
+    gui.sliderValueChanged(slider);
 }
 
 void MainComponent::timerCallback()
 {
-  gui.timerCallback();
+    gui.timerCallback();
 }
 
 juce::String MainComponent::formatTime(double seconds)
 {
-  int mins = static_cast<int>(seconds / 60);
-  int secs = static_cast<int>(seconds) % 60;
-  return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
+    int mins = static_cast<int>(seconds / 60);
+    int secs = static_cast<int>(seconds) % 60;
+    return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
 }

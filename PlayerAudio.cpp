@@ -1,160 +1,185 @@
-#include "PlayerAudio.h"
+﻿#include "PlayerAudio.h"
 
 PlayerAudio::PlayerAudio()
 {
-  formatManager.registerBasicFormats();
+    formatManager.registerBasicFormats();
 }
 
 PlayerAudio::~PlayerAudio()
 {
-  if (resamplingSource)
-  {
-    resamplingSource->releaseResources();
-    resamplingSource.reset();
-  }
+    if (resamplingSource)
+    {
+        resamplingSource->releaseResources();
+        resamplingSource.reset();
+    }
 
-  transportSource.stop();
-  transportSource.setSource(nullptr);
-  readerSource.reset();
+    transportSource.stop();
+    transportSource.setSource(nullptr);
+    readerSource.reset();
 }
 
 void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
-  transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
+    transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 
-  if (!resamplingSource)
-    resamplingSource = std::make_unique<juce::ResamplingAudioSource>(&transportSource, false, 2);
+    if (!resamplingSource)
+        resamplingSource = std::make_unique<juce::ResamplingAudioSource>(&transportSource, false, 2);
 
-  resamplingSource->prepareToPlay(samplesPerBlockExpected, sampleRate);
-  resamplingSource->setResamplingRatio(speedRatio);
+    resamplingSource->prepareToPlay(samplesPerBlockExpected, sampleRate);
+    resamplingSource->setResamplingRatio(speedRatio);
 }
 
 void PlayerAudio::releaseResources()
 {
-  if (resamplingSource)
-    resamplingSource->releaseResources();
+    if (resamplingSource)
+        resamplingSource->releaseResources();
 
-  transportSource.releaseResources();
+    transportSource.releaseResources();
 }
 
 void PlayerAudio::loadFileAsync()
 {
-  fileChooser = std::make_unique<juce::FileChooser>(
-    "Select an audio file...",
-    juce::File{},
-    "*.wav;*.mp3");
+    fileChooser = std::make_unique<juce::FileChooser>(
+        "Select an audio file...",
+        juce::File{},
+        "*.wav;*.mp3");
 
-  fileChooser->launchAsync(
-    juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
-    [this](const juce::FileChooser& fc)
-    {
-      auto file = fc.getResult();
-      if (file.existsAsFile())
-        loadFile(file);
-    });
+    fileChooser->launchAsync(
+        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+        [this](const juce::FileChooser& fc)
+        {
+            auto file = fc.getResult();
+            if (file.existsAsFile())
+                loadFile(file);
+        });
 }
 
 void PlayerAudio::loadFile(const juce::File& file)
 {
-  if (!file.existsAsFile())
-    return;
+    if (!file.existsAsFile())
+        return;
 
-  if (auto* reader = formatManager.createReaderFor(file))
-  {
-    transportSource.stop();
-    transportSource.setSource(nullptr);
-    readerSource.reset();
+    if (auto* reader = formatManager.createReaderFor(file))
+    {
+        transportSource.stop();
+        transportSource.setSource(nullptr);
+        readerSource.reset();
 
-    readerSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
-    transportSource.setSource(readerSource.get(),
-      0,
-      nullptr,
-      reader->sampleRate);
+        readerSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
+        transportSource.setSource(readerSource.get(),
+            0,
+            nullptr,
+            reader->sampleRate);
 
-    // remember loaded file so GUI can build a thumbnail
-    currentFile = file;
+        // remember loaded file so GUI can build a thumbnail
+        currentFile = file;
 
-    transportSource.start();
+        transportSource.start();
 
-    // ensure resampler uses stored ratio
-    if (resamplingSource)
-      resamplingSource->setResamplingRatio(speedRatio);
-  }
+        // ensure resampler uses stored ratio
+        if (resamplingSource)
+            resamplingSource->setResamplingRatio(speedRatio);
+    }
 }
 
 void PlayerAudio::start()
 {
-  if (transportSource.getLengthInSeconds() > 0.0)
-    transportSource.start();
+    if (transportSource.getLengthInSeconds() > 0.0)
+        transportSource.start();
 }
 
 void PlayerAudio::stop()
 {
-  transportSource.stop();
+    transportSource.stop();
 }
 
 void PlayerAudio::restart()
 {
-  transportSource.stop();
-  transportSource.setPosition(0.0);
-  transportSource.start();
+    transportSource.stop();
+    transportSource.setPosition(0.0);
+    transportSource.start();
 }
 
 void PlayerAudio::setPosition(double seconds)
 {
-  transportSource.setPosition(seconds);
+    transportSource.setPosition(seconds);
 }
 
 double PlayerAudio::getCurrentPosition() const
 {
-  return transportSource.getCurrentPosition();
+    return transportSource.getCurrentPosition();
 }
 
 double PlayerAudio::getTotalLengthSeconds() const
 {
-  if (readerSource)
-  {
-    if (auto* r = readerSource->getAudioFormatReader())
-      return readerSource->getTotalLength() / r->sampleRate;
-  }
-  return 0.0;
+    if (readerSource)
+    {
+        if (auto* r = readerSource->getAudioFormatReader())
+            return readerSource->getTotalLength() / r->sampleRate;
+    }
+    return 0.0;
 }
 
 void PlayerAudio::setGain(float g)
 {
-  transportSource.setGain(g);
+    transportSource.setGain(g);
 }
 
 float PlayerAudio::getGain() const
 {
-  return transportSource.getGain();
+    return transportSource.getGain();
 }
 
 bool PlayerAudio::isPlaying() const
 {
-  return transportSource.isPlaying();
+    return transportSource.isPlaying();
 }
 
 void PlayerAudio::setLooping(bool shouldLoop)
 {
-  if (readerSource)
-    readerSource->setLooping(shouldLoop);
+    if (readerSource)
+        readerSource->setLooping(shouldLoop);
 }
 
 void PlayerAudio::setSpeed(double ratio)
 {
-  if (ratio < 0.01) ratio = 0.01;
-  if (ratio > 8.0) ratio = 8.0;
-  speedRatio = ratio;
-  if (resamplingSource)
-    resamplingSource->setResamplingRatio(speedRatio);
+    if (ratio < 0.01) ratio = 0.01;
+    if (ratio > 8.0) ratio = 8.0;
+    speedRatio = ratio;
+    if (resamplingSource)
+        resamplingSource->setResamplingRatio(speedRatio);
 }
 
 juce::AudioSource* PlayerAudio::getAudioSource() noexcept
 {
-  if (resamplingSource)
-    return resamplingSource.get();
+    if (resamplingSource)
+        return resamplingSource.get();
 
-  return &transportSource;
+    return &transportSource;
 }
-  
+
+// setRegionLooping function
+void PlayerAudio::setRegionLooping(bool shouldLoop, double start, double end)
+{
+    if (readerSource)
+        readerSource->setLooping(false); 
+
+    // تخزين الحالة والنقاط
+    regionLoopingActive = shouldLoop;
+
+    if (shouldLoop)
+    {
+        loopStart = juce::jmin(start, end);
+        loopEnd = juce::jmax(start, end);
+
+        // اجعل نقطة التشغيل الحالية هي البداية إذا كانت خارج المنطقة
+        if (transportSource.getCurrentPosition() < loopStart || transportSource.getCurrentPosition() >= loopEnd)
+            transportSource.setPosition(loopStart);
+    }
+    else
+    {
+        // إعادة تعيين النقاط عند إلغاء التفعيل
+        loopStart = 0.0;
+        loopEnd = 0.0;
+    }
+}
