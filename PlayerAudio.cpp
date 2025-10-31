@@ -7,6 +7,12 @@ PlayerAudio::PlayerAudio()
 
 PlayerAudio::~PlayerAudio()
 {
+  if (resamplingSource)
+  {
+    resamplingSource->releaseResources();
+    resamplingSource.reset();
+  }
+
   transportSource.stop();
   transportSource.setSource(nullptr);
   readerSource.reset();
@@ -15,10 +21,19 @@ PlayerAudio::~PlayerAudio()
 void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
   transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
+
+  if (!resamplingSource)
+    resamplingSource = std::make_unique<juce::ResamplingAudioSource>(&transportSource, false, 2);
+
+  resamplingSource->prepareToPlay(samplesPerBlockExpected, sampleRate);
+  resamplingSource->setResamplingRatio(speedRatio);
 }
 
 void PlayerAudio::releaseResources()
 {
+  if (resamplingSource)
+    resamplingSource->releaseResources();
+
   transportSource.releaseResources();
 }
 
@@ -55,7 +70,15 @@ void PlayerAudio::loadFile(const juce::File& file)
       0,
       nullptr,
       reader->sampleRate);
+
+    // remember loaded file so GUI can build a thumbnail
+    currentFile = file;
+
     transportSource.start();
+
+    // ensure resampler uses stored ratio
+    if (resamplingSource)
+      resamplingSource->setResamplingRatio(speedRatio);
   }
 }
 
@@ -117,3 +140,21 @@ void PlayerAudio::setLooping(bool shouldLoop)
   if (readerSource)
     readerSource->setLooping(shouldLoop);
 }
+
+void PlayerAudio::setSpeed(double ratio)
+{
+  if (ratio < 0.01) ratio = 0.01;
+  if (ratio > 8.0) ratio = 8.0;
+  speedRatio = ratio;
+  if (resamplingSource)
+    resamplingSource->setResamplingRatio(speedRatio);
+}
+
+juce::AudioSource* PlayerAudio::getAudioSource() noexcept
+{
+  if (resamplingSource)
+    return resamplingSource.get();
+
+  return &transportSource;
+}
+  

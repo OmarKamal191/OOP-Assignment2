@@ -24,8 +24,8 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
-  if (auto* transport = audio.getTransportSource())
-    transport->getNextAudioBlock(bufferToFill);
+  if (auto* source = audio.getAudioSource())
+    source->getNextAudioBlock(bufferToFill);
   else
     bufferToFill.clearActiveBufferRegion();
 }
@@ -63,8 +63,6 @@ void MainComponent::timerCallback()
 
 juce::String MainComponent::formatTime(double seconds)
 {
-  // keep same implementation as before (if any code in gui used its own formatTime,
-  // this duplicate keeps names stable)
   int mins = static_cast<int>(seconds / 60);
   int secs = static_cast<int>(seconds) % 60;
   return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
