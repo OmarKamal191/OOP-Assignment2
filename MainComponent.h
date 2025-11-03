@@ -10,6 +10,7 @@ public:
 	MainComponent();
 	~MainComponent() override;
 
+
 	// Audio
 	void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override;
 	void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override;
@@ -29,6 +30,8 @@ public:
 private:
 	PlayerGUI gui;
 	PlayerAudio audio;
+
+
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };

@@ -25,6 +25,11 @@ public:
     // allow clicking on waveform to seek
     void mouseDown(const juce::MouseEvent& event) override;
 
+    void refreshPlaylistDisplay();
+
+    
+
+
     // copy of makeIcon - same signature as original
     std::unique_ptr<juce::DrawablePath> makeIcon(juce::Path& path, juce::Colour colour)
     {
@@ -69,6 +74,70 @@ public:
     // Sleep Timer button 
     juce::TextButton sleepTimerButton{ "Sleep Timer" };
 
+	// Playlist Model
+    class PlaylistModel : public juce::ListBoxModel
+    {
+    public:
+
+        std::vector<juce::String> trackTitles;
+        std::vector<juce::String> trackDurations;
+
+        PlaylistModel(PlayerGUI& owner) : gui(owner) {}
+
+        int getNumRows() override { return gui.playlistFiles.size(); }
+
+        void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+
+        void listBoxItemClicked(int row, const juce::MouseEvent&) override
+        {
+            if (row >= 0 && row < gui.playlistFileObjects.size())
+            {
+                juce::File f = gui.playlistFileObjects[row];
+
+                // حمل الملف
+                gui.audio->loadFileDirect(f);
+
+                // استخدم TagLib لقراءة الميتاداتا
+                TagLib::FileRef ref(f.getFullPathName().toRawUTF8());
+                juce::String displayTitle;
+
+                if (!ref.isNull() && ref.tag())
+                {
+                    auto* tag = ref.tag();
+                    juce::String title = juce::String::fromUTF8(tag->title().toCString(true));
+                    juce::String artist = juce::String::fromUTF8(tag->artist().toCString(true));
+                    juce::String album = juce::String::fromUTF8(tag->album().toCString(true));
+
+                    // دمج الميتاداتا في نص واحد
+                    if (title.isNotEmpty()) displayTitle = title;
+                    if (artist.isNotEmpty()) displayTitle += " - " + artist;
+                    if (album.isNotEmpty()) displayTitle += " | " + album;
+                }
+
+                // fallback لو مفيش ميتاداتا
+                if (displayTitle.isEmpty())
+                    displayTitle = f.getFileNameWithoutExtension();
+
+                // عرض الاسم فوق البلاي ليست
+                gui.metadataLabel.setText(displayTitle, juce::dontSendNotification);
+
+                // شغل الأغنية
+                gui.audio->start();
+                gui.ppButton.setImages(gui.pauseButtonIcon.get());
+            }
+        }
+       
+
+    
+
+
+
+    private:
+        PlayerGUI& gui;
+    };
+    std::unique_ptr<PlaylistModel> playlistModel;
+
+
 private:
     PlayerAudio* audio = nullptr;
 
@@ -90,6 +159,21 @@ private:
     // حالة الماوس لتعيين النقاط
     enum class LoopPointState { None, SettingStart, SettingEnd };
     LoopPointState settingLoopPoint = LoopPointState::None;
+    
+	// Metadata display
+    juce::Label metadataLabel;
+
+    // Playlist components
+    juce::ListBox playlistBox;
+    juce::StringArray playlistFiles;
+    std::vector<juce::File> playlistFileObjects;
+
+    
+    std::unique_ptr<juce::FileChooser> fileChooser;
+
+
+    
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGUI)
 };

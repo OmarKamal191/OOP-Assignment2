@@ -1,5 +1,8 @@
 ﻿#pragma once
 #include <JuceHeader.h>
+#include <taglib/fileref.h>
+#include <taglib/tag.h>
+
 
 class PlayerAudio
 {
@@ -13,6 +16,13 @@ public:
 	// Loading
 	void loadFileAsync(); // launches chooser (requires being called from GUI thread)
 	void loadFile(const juce::File& file);
+
+	// Direct loading without file chooser (for internal use)
+	void loadFileDirect(const juce::File& file);
+
+	
+
+
 
 	// Controls
 	void start();
@@ -45,6 +55,24 @@ public:
 	// New: Region Looping Control (التحكم في تكرار المنطقة)
 	void setRegionLooping(bool shouldLoop, double start, double end);
 	bool isRegionLooping() const noexcept { return regionLoopingActive; }
+
+	
+	void updateMetadata(const juce::File& file);
+
+
+	// Metadata
+	juce::String trackTitle;
+	juce::String trackArtist;
+	juce::String trackAlbum;
+
+
+	juce::String trackDuration;
+
+
+
+	std::function<void()> onFileLoaded;
+
+
 
 private:
 	juce::AudioFormatManager formatManager;

@@ -39,13 +39,9 @@ void PlayerAudio::releaseResources()
 
 void PlayerAudio::loadFileAsync()
 {
-    fileChooser = std::make_unique<juce::FileChooser>(
-        "Select an audio file...",
-        juce::File{},
-        "*.wav;*.mp3");
+    juce::FileChooser chooser("Select an audio file...", juce::File{}, "*.mp3;*.wav");
 
-    fileChooser->launchAsync(
-        juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+    chooser.launchAsync(juce::FileBrowserComponent::openMode,
         [this](const juce::FileChooser& fc)
         {
             auto file = fc.getResult();
@@ -54,10 +50,70 @@ void PlayerAudio::loadFileAsync()
         });
 }
 
+
+void PlayerAudio::loadFileDirect(const juce::File& file)
+{
+    if (!file.existsAsFile())
+        return;
+
+    trackTitle.clear();
+    trackArtist.clear();
+    trackAlbum.clear();
+
+    TagLib::FileRef f(file.getFullPathName().toRawUTF8());
+    if (!f.isNull() && f.tag())
+    {
+        auto tag = f.tag();
+        juce::String title = juce::String::fromUTF8(tag->title().toCString(true));
+        juce::String artist = juce::String::fromUTF8(tag->artist().toCString(true));
+        juce::String album = juce::String::fromUTF8(tag->album().toCString(true));
+        trackTitle = title;
+        trackArtist = artist;
+        trackAlbum = album;
+    }
+
+    if (auto* reader = formatManager.createReaderFor(file))
+    {
+        transportSource.stop();
+        transportSource.setSource(nullptr);
+        readerSource.reset();
+
+        readerSource = std::make_unique<juce::AudioFormatReaderSource>(reader, true);
+        transportSource.setSource(readerSource.get(), 0, nullptr, reader->sampleRate);
+
+        currentFile = file;
+
+        if (resamplingSource)
+            resamplingSource->setResamplingRatio(speedRatio);
+    }
+}
+
+
 void PlayerAudio::loadFile(const juce::File& file)
 {
     if (!file.existsAsFile())
         return;
+	// Reset metadata
+    trackTitle.clear();
+    trackArtist.clear();
+    trackAlbum.clear();
+
+    TagLib::FileRef f(file.getFullPathName().toRawUTF8());
+    if (!f.isNull() && f.tag())
+    {
+        auto tag = f.tag();
+
+        juce::String title = juce::String::fromUTF8(tag->title().toCString(true));
+        juce::String artist = juce::String::fromUTF8(tag->artist().toCString(true));
+        juce::String album = juce::String::fromUTF8(tag->album().toCString(true));
+
+        trackTitle = title;
+        trackArtist = artist;
+        trackAlbum = album;
+    }
+
+
+
 
     if (auto* reader = formatManager.createReaderFor(file))
     {
@@ -80,6 +136,10 @@ void PlayerAudio::loadFile(const juce::File& file)
         if (resamplingSource)
             resamplingSource->setResamplingRatio(speedRatio);
     }
+
+    if (onFileLoaded)
+        onFileLoaded();
+
 }
 
 void PlayerAudio::start()
@@ -183,3 +243,27 @@ void PlayerAudio::setRegionLooping(bool shouldLoop, double start, double end)
         loopEnd = 0.0;
     }
 }
+
+void PlayerAudio::updateMetadata(const juce::File& file)
+{
+    if (!file.existsAsFile())
+        return;
+
+    TagLib::FileRef ref(file.getFullPathName().toRawUTF8());
+    if (!ref.isNull() && ref.tag())
+    {
+        trackTitle = juce::String::fromUTF8(ref.tag()->title().toCString(true));
+        trackArtist = juce::String::fromUTF8(ref.tag()->artist().toCString(true));
+        trackAlbum = juce::String::fromUTF8(ref.tag()->album().toCString(true));
+
+        if (ref.audioProperties())
+        {
+            int totalSeconds = ref.audioProperties()->length();
+            trackDuration = juce::String(totalSeconds / 60) + ":" +
+                juce::String(totalSeconds % 60).paddedLeft('0', 2);
+        }
+    }
+}
+
+
+
