@@ -67,3 +67,4 @@ juce::String MainComponent::formatTime(double seconds)
     int secs = static_cast<int>(seconds) % 60;
     return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
 }
+

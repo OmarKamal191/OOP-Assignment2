@@ -83,6 +83,31 @@ PlayerGUI::PlayerGUI()
     fw10Button.setImages(fw10Icon.get());
     bw10Button.setImages(bw10Icon.get());
 
+	// Metadata label
+    metadataLabel.setJustificationType(juce::Justification::centred);
+    metadataLabel.setFont(juce::Font(20.0f));
+    addAndMakeVisible(metadataLabel);
+
+	// Playlist Model
+    playlistModel = std::make_unique<PlaylistModel>(*this);
+    playlistBox.setModel(playlistModel.get());
+    playlistBox.setRowHeight(25);
+    playlistBox.setColour(juce::ListBox::backgroundColourId, juce::Colours::black);
+    playlistBox.setColour(juce::ListBox::textColourId, juce::Colours::white);
+    addAndMakeVisible(playlistBox);
+
+
+	// Playlist box
+    playlistBox.setRowHeight(25);
+    playlistBox.setColour(juce::ListBox::backgroundColourId, juce::Colours::black);
+    playlistBox.setColour(juce::ListBox::textColourId, juce::Colours::white);
+    addAndMakeVisible(playlistBox);
+
+    playlistBox.setOutlineThickness(1);
+    playlistBox.setColour(juce::ListBox::outlineColourId, juce::Colours::grey);
+
+
+
     for (auto* btn : { &ppButton , &toEndButton , &toStartButton , &fw10Button , &bw10Button })
     {
         btn->addListener(this);
@@ -117,6 +142,37 @@ void PlayerGUI::setAudio(PlayerAudio* audioPtr) noexcept
 {
     audio = audioPtr;
 
+	// setup metadata callback
+    if (audio)
+    {
+        audio->onFileLoaded = [this]()
+            {
+                juce::MessageManager::callAsync([this]()
+                    {
+                        juce::File f = audio->getCurrentFile();
+
+                        juce::String title = audio->trackTitle.trim();
+                        juce::String artist = audio->trackArtist.trim();
+                        juce::String album = audio->trackAlbum.trim();
+
+                        bool hasMetadata = !title.isEmpty() || !artist.isEmpty() || !album.isEmpty();
+
+                        if (!hasMetadata)
+                        {
+                            metadataLabel.setText(f.getFileNameWithoutExtension(), juce::dontSendNotification);
+                        }
+                        else
+                        {
+                            if (title.isEmpty()) title = f.getFileNameWithoutExtension();
+                            metadataLabel.setText(title + " - " + artist + " - " + album, juce::dontSendNotification);
+                        }
+                    });
+            };
+    }
+
+
+
+
     // create thumbnail+cache now that we can access a format manager
     if (audio != nullptr && audio->getFormatManager() != nullptr)
     {
@@ -132,6 +188,9 @@ void PlayerGUI::setAudio(PlayerAudio* audioPtr) noexcept
         }
     }
 }
+
+
+
 
 void PlayerGUI::paint(juce::Graphics& g)
 {
@@ -199,6 +258,16 @@ void PlayerGUI::paint(juce::Graphics& g)
             g.drawText("Waveform", waveformBounds, juce::Justification::centred);
         }
     }
+    // Draw playlist headers
+    g.setColour(juce::Colours::white);
+    g.setFont(18.0f);
+
+    auto playlistArea = playlistBox.getBounds();
+    int headerY = playlistArea.getY() - 25;
+
+    g.drawText("Track name", playlistArea.getX() + 5, headerY, 200, 20, juce::Justification::left);
+    g.drawText("Duration", playlistArea.getRight() - 120, headerY, 100, 20, juce::Justification::right);
+
 
 }
 
@@ -258,6 +327,17 @@ void PlayerGUI::resized()
     int wfHeight = 120;
     int wfY = yPos + smallButtonHeight + 20;
     waveformBounds = { 20, wfY, getWidth() - 40, wfHeight };
+
+    // Place metadata label below waveform
+    metadataLabel.setBounds(20, wfY + wfHeight + 10, getWidth() - 40, 30);
+
+	// Place playlist box at the bottom
+    playlistBox.setBounds(20, waveformBounds.getBottom() + 50, getWidth() - 40, 150);
+
+   
+    playlistBox.setBounds(20, metadataLabel.getBottom() + 10, getWidth() - 40, 150);
+
+
 }
 
 juce::String PlayerGUI::formatTime(double seconds)
@@ -274,8 +354,44 @@ void PlayerGUI::buttonClicked(juce::Button* button)
 
     if (button == &loadButton)
     {
-        audio->loadFileAsync();
+        fileChooser = std::make_unique<juce::FileChooser>("Select audio files...", juce::File{}, "*.mp3;*.wav");
+        fileChooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectMultipleItems,
+            [this](const juce::FileChooser& fc)
+            {
+                auto results = fc.getResults();
+                if (results.isEmpty()) return;
+
+                playlistFiles.clear();
+                playlistFileObjects.clear();
+
+                for (auto& f : results)
+                {
+                    audio->updateMetadata(f);
+                    playlistModel->trackDurations.push_back(audio->trackDuration);
+
+                    TagLib::FileRef ref(f.getFullPathName().toRawUTF8());
+                    juce::String displayName;
+
+                    if (!ref.isNull() && ref.tag() && ref.tag()->title().length() > 0)
+                        displayName = juce::String::fromUTF8(ref.tag()->title().toCString(true));
+                    else
+                        displayName = f.getFileNameWithoutExtension();
+
+                    playlistFiles.add(displayName);
+                    playlistFileObjects.push_back(f);
+                }
+
+                refreshPlaylistDisplay();
+
+                if (!playlistFileObjects.empty())
+                {
+                    audio->loadFileDirect(playlistFileObjects[0]);
+                    metadataLabel.setText(playlistFiles[0], juce::dontSendNotification);
+                }
+            });
     }
+
+
 
     if (button == &restartButton)
     {
@@ -597,4 +713,30 @@ void PlayerGUI::mouseDown(const juce::MouseEvent& event)
 
         repaint(waveformBounds);
     }
+
 }
+
+void PlayerGUI::refreshPlaylistDisplay()
+{
+    playlistBox.updateContent();
+    playlistBox.repaint();
+}
+
+void PlayerGUI::PlaylistModel::paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected)
+{
+    if (rowIsSelected)
+        g.fillAll(juce::Colours::lightblue);
+    else
+        g.fillAll(juce::Colours::darkgrey);
+
+    if (rowNumber < 0 || rowNumber >= gui.playlistFiles.size())
+        return;
+
+    juce::String title = rowNumber < (int)trackTitles.size() ? trackTitles[rowNumber] : gui.playlistFiles[rowNumber];
+    juce::String duration = rowNumber < (int)trackDurations.size() ? trackDurations[rowNumber] : "";
+
+    g.setColour(juce::Colours::white);
+    g.drawText(title, 10, 0, width / 2, height, juce::Justification::centredLeft);
+    g.drawText(duration, width / 2, 0, width / 2 - 10, height, juce::Justification::centredRight);
+}
+
