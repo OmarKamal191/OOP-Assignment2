@@ -25,9 +25,17 @@ public:
     // allow clicking on waveform to seek
     void mouseDown(const juce::MouseEvent& event) override;
 
+	// set playlist files and durations
+    void setPlaylist(const std::vector<juce::File>& files, const juce::StringArray& durations);
+    void updateControlsFromAudio();
+    const std::vector<juce::File>& getPlaylistFileObjects() const { return playlistFileObjects; }
+
+
     void refreshPlaylistDisplay();
 
     void clearMarkers();
+
+    
 
 
     // copy of makeIcon - same signature as original
@@ -106,10 +114,10 @@ public:
 
                 juce::File f = gui.playlistFileObjects[row];
 
-                // حمل الملف
+				// load the selected file
                 gui.audio->loadFileDirect(f);
 
-                // استخدم TagLib لقراءة الميتاداتا
+				// update metadata display
                 TagLib::FileRef ref(f.getFullPathName().toRawUTF8());
                 juce::String displayTitle;
 
@@ -120,20 +128,20 @@ public:
                     juce::String artist = juce::String::fromUTF8(tag->artist().toCString(true));
                     juce::String album = juce::String::fromUTF8(tag->album().toCString(true));
 
-                    // دمج الميتاداتا في نص واحد
+					// merge metadata into display string
                     if (title.isNotEmpty()) displayTitle = title;
                     if (artist.isNotEmpty()) displayTitle += " - " + artist;
                     if (album.isNotEmpty()) displayTitle += " | " + album;
                 }
 
-                // fallback لو مفيش ميتاداتا
+				// if no metadata, use filename
                 if (displayTitle.isEmpty())
                     displayTitle = f.getFileNameWithoutExtension();
 
-                // عرض الاسم فوق البلاي ليست
+				// display the title
                 gui.metadataLabel.setText(displayTitle, juce::dontSendNotification);
 
-                // شغل الأغنية
+				// start playback
                 gui.audio->start();
                 gui.ppButton.setImages(gui.pauseButtonIcon.get());
             }
@@ -185,7 +193,7 @@ private:
     double loopStartSeconds = 0.0;
     double loopEndSeconds = 0.0;
 
-    // حالة الماوس لتعيين النقاط
+	// mode for setting loop points
     enum class LoopPointState { None, SettingStart, SettingEnd };
     LoopPointState settingLoopPoint = LoopPointState::None;
     

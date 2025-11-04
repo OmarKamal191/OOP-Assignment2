@@ -85,7 +85,7 @@ PlayerGUI::PlayerGUI()
 
 	// Metadata label
     metadataLabel.setJustificationType(juce::Justification::centred);
-    metadataLabel.setFont(juce::Font(20.0f));
+    metadataLabel.setFont(juce::Font(25.0f));
     addAndMakeVisible(metadataLabel);
 
 	// Playlist Model
@@ -230,10 +230,10 @@ void PlayerGUI::paint(juce::Graphics& g)
         {
             thumbnail->drawChannels(g, waveformBounds.reduced(4), 0.0, total, 1.0f);
 
-            // New: Draw Loop Region Markers (رسم مؤشرات منطقة التكرار)
+            // Draw Loop Region Markers
             if (loopRegionActive)
             {
-                // حساب موضع البداية والنهاية على الشاشة (بكسل)
+				// get loop start and end in seconds
                 auto getX = [&](double seconds)
                     {
                         double pos = juce::jlimit(0.0, 1.0, seconds / total);
@@ -243,12 +243,12 @@ void PlayerGUI::paint(juce::Graphics& g)
                 int startX = getX(loopStartSeconds);
                 int endX = getX(loopEndSeconds);
 
-                // 1. تظليل المنطقة بين start و end
+				// draw filled rectangle for loop area
                 juce::Rectangle<int> loopArea(startX, waveformBounds.getY(), endX - startX, waveformBounds.getHeight());
                 g.setColour(juce::Colours::blue.withAlpha(0.2f));
                 g.fillRect(loopArea);
 
-                // 2. رسم خطوط البداية والنهاية
+				// draw start and end lines
                 g.setColour(juce::Colours::yellow);
                 g.drawLine((float)startX, (float)waveformBounds.getY(), (float)startX, (float)waveformBounds.getBottom(), 2.0f); // خط البداية
                 g.drawLine((float)endX, (float)waveformBounds.getY(), (float)endX, (float)waveformBounds.getBottom(), 2.0f);   // خط النهاية
@@ -256,7 +256,7 @@ void PlayerGUI::paint(juce::Graphics& g)
 
             if (total > 0.0 && !markerTimes.empty())
             {
-                g.setColour(juce::Colours::green); // اللون الأخضر
+                g.setColour(juce::Colours::green);
 
                 auto getX = [&](double seconds)
                     {
@@ -267,7 +267,7 @@ void PlayerGUI::paint(juce::Graphics& g)
                 for (double markerTime : markerTimes)
                 {
                     int markerX = getX(markerTime);
-                    // ارسم خط أخضر بعرض 2 بكسل
+					// draw marker line
                     g.drawLine((float)markerX, (float)waveformBounds.getY(), (float)markerX, (float)waveformBounds.getBottom(), 2.0f);
                 }
             }
@@ -362,22 +362,19 @@ void PlayerGUI::resized()
     int playlistButtonY = metadataLabel.getBottom() + 10;
     int playlistButtonWidth = 120;
     int playlistSpacing = 10;
-    removeSelectedButton.setBounds(340, playlistButtonY, playlistButtonWidth, 30);
-    clearAllButton.setBounds(340 + playlistButtonWidth + playlistSpacing, playlistButtonY, playlistButtonWidth, 30);
-
-
-    addMarkerButton.setBounds(340 + (playlistButtonWidth + playlistSpacing) * 2, playlistButtonY, playlistButtonWidth, 30);
-    
+    removeSelectedButton.setBounds(470, playlistButtonY, playlistButtonWidth, 30);
+    clearAllButton.setBounds(470 + playlistButtonWidth + playlistSpacing, playlistButtonY, playlistButtonWidth, 30);
 
     // Place playlist box at the bottom, below the new buttons
-    playlistBox.setBounds(20, playlistButtonY + 30 + 10, getWidth() - 40, 120);
+    playlistBox.setBounds(20, playlistButtonY + 40, getWidth() - 40, 120);
 
 	// Place marker box below playlist box
     int markerBoxY = playlistBox.getBottom() + 10;
     markerBox.setBounds(20, markerBoxY+30, getWidth() - 40, 100);
 
 	// Place clear markers button below marker box
-	clearMarkersButton.setBounds(470 + (playlistButtonWidth + playlistSpacing) * 2, playlistButtonY, playlistButtonWidth, 30);
+    addMarkerButton.setBounds(210 + (playlistButtonWidth + playlistSpacing) * 2, playlistButtonY +165, playlistButtonWidth, 30);
+	clearMarkersButton.setBounds(340 + (playlistButtonWidth + playlistSpacing) * 2, playlistButtonY +165, playlistButtonWidth, 30);
 }
 
 juce::String PlayerGUI::formatTime(double seconds)
@@ -405,8 +402,18 @@ void PlayerGUI::buttonClicked(juce::Button* button)
 
                 for (auto& f : results)
                 {
-                    audio->updateMetadata(f);
-                    playlistModel->trackDurations.push_back(audio->trackDuration);
+                    juce::String durationString = "0:00";
+                    if (auto* formatManager = audio->getFormatManager())
+                    {
+                        std::unique_ptr<juce::AudioFormatReader> reader(formatManager->createReaderFor(f));
+                        if (reader) 
+                        {
+                            double durationSeconds = (double)reader->lengthInSamples / reader->sampleRate;
+                            durationString = formatTime(durationSeconds);
+                        }
+                    }
+
+                    playlistModel->trackDurations.push_back(durationString);
 
                     TagLib::FileRef ref(f.getFullPathName().toRawUTF8());
                     juce::String displayName;
@@ -459,7 +466,9 @@ void PlayerGUI::buttonClicked(juce::Button* button)
             playlistBox.deselectRow(selectedRow); // Deselect row
         }
 
-        audio->setPosition(0.0);
+        progressSlider.setValue(0.0, juce::dontSendNotification);
+        currentTimeLabel.setText("0:00", juce::dontSendNotification);
+        totalTimeLabel.setText("0:00", juce::dontSendNotification);
 
         // Reset metadata label
         metadataLabel.setText("", juce::dontSendNotification);
@@ -482,7 +491,9 @@ void PlayerGUI::buttonClicked(juce::Button* button)
         // Refresh the display
         refreshPlaylistDisplay();
 
-        audio->setPosition(0.0);
+        progressSlider.setValue(0.0, juce::dontSendNotification);
+        currentTimeLabel.setText("0:00", juce::dontSendNotification);
+        totalTimeLabel.setText("0:00", juce::dontSendNotification);
         
 		// Reset metadata label
 		metadataLabel.setText("", juce::dontSendNotification);
@@ -629,30 +640,30 @@ void PlayerGUI::buttonClicked(juce::Button* button)
 
         if (!loopRegionActive)
         {
-            //تفعيل وضع التكرار
+			// activate loop region setting
             loopRegionActive = true;
-            loopStartSeconds = 0.0; // إعادة تعيين النقاط
+            loopStartSeconds = 0.0;
             loopEndSeconds = audio->getTotalLengthSeconds();
 
-            // طلب من المستخدم تعيين النقاط 
+			// ask user to set start point
             loopRegionButton.setButtonText("Set Start (Click Waveform)");
             settingLoopPoint = LoopPointState::SettingStart;
             loopRegionButton.setColour(juce::TextButton::buttonColourId, juce::Colours::orange);
 
-            // تحديث حالة الصوت
+			// update state to wait for user to click waveform
             audio->setRegionLooping(true, loopStartSeconds, loopEndSeconds);
         }
         else
         {
-            // إلغاء وضع التكرار
+			// cancel loop region
             loopRegionActive = false;
             settingLoopPoint = LoopPointState::None;
 
-            // إعادة الزر للحالة الافتراضية
+			// reset button appearance
             loopRegionButton.setButtonText("Repeat a Track");
             loopRegionButton.removeColour(juce::TextButton::buttonColourId);
 
-            // تحديث حالة الصوت لإلغاء التكرار
+			// disable region looping
             audio->setRegionLooping(false, 0.0, 0.0);
         }
     }
@@ -663,21 +674,21 @@ void PlayerGUI::buttonClicked(juce::Button* button)
         {
             double currentTime = audio->getCurrentPosition();
 
-            // إضافة الماركر
+			// add marker at current time
             markerTimes.push_back(currentTime);
 
-            // (اختياري) ترتيب الماركرات حسب الوقت
+			// arrange markers in order
             std::sort(markerTimes.begin(), markerTimes.end());
 
-            // (اختياري) إزالة الماركرات المكررة جداً (بفارق 10 ميللي ثانية)
+			// erase duplicates within 0.01 seconds
             markerTimes.erase(std::unique(markerTimes.begin(), markerTimes.end(),
                 [](double a, double b) { return std::abs(a - b) < 0.01; }),
                 markerTimes.end());
 
-            // تحديث قائمة العرض
+			// update marker list display
             markerBox.updateContent();
 
-            // إعادة رسم الـ Waveform لإظهار الخط الأخضر
+			// to reflect the green marker lines
             repaint(waveformBounds);
         }
     }
@@ -797,9 +808,9 @@ void PlayerGUI::mouseDown(const juce::MouseEvent& event)
 
         double localX = event.x - waveformBounds.getX();
         double proportion = juce::jlimit(0.0, 1.0, localX / (double)waveformBounds.getWidth());
-        double clickedPos = proportion * total; // الموضع بالثواني
+        double clickedPos = proportion * total; 
 
-        // New: Logic to set loop points (منطق تعيين نقاط التكرار)
+        // Logic to set loop points
         if (settingLoopPoint != LoopPointState::None)
         {
             if (settingLoopPoint == LoopPointState::SettingStart)
@@ -808,33 +819,33 @@ void PlayerGUI::mouseDown(const juce::MouseEvent& event)
                 settingLoopPoint = LoopPointState::SettingEnd;
                 loopRegionButton.setButtonText("Set End (Click Waveform)");
 
-                // إذا كانت نقطة البداية الجديدة أكبر من النهاية الحالية، اضبط النهاية على طول الملف مؤقتاً
+                // set a temporary end point if start > end
                 if (loopStartSeconds > loopEndSeconds)
                     loopEndSeconds = total;
             }
             else if (settingLoopPoint == LoopPointState::SettingEnd)
             {
                 loopEndSeconds = clickedPos;
-                settingLoopPoint = LoopPointState::None; // الانتهاء من التعيين
+                settingLoopPoint = LoopPointState::None; 
 
-                // تأكد من أن start <= end
+				// make sure start is less than end
                 if (loopStartSeconds > loopEndSeconds)
                     std::swap(loopStartSeconds, loopEndSeconds);
 
-                // إعادة الزر إلى حالة التكرار النشطة
+				// set button appearance to show active loop region
                 loopRegionButton.setButtonText("Looping (" + formatTime(loopStartSeconds) + " to " + formatTime(loopEndSeconds) + ")");
                 loopRegionButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
             }
 
-            // تحديث منطق الصوت في PlayerAudio بالنقاط الجديدة
+			// update audio region looping
             audio->setRegionLooping(true, loopStartSeconds, loopEndSeconds);
 
-            // قم بوضع مؤشر التشغيل على نقطة البداية وكرر
+			// move playback position to loop start
             audio->setPosition(loopStartSeconds);
         }
         else
         {
-            // المنطق الأصلي (للتحريك العادي للمؤشر إذا لم يكن في وضع تعيين التكرار)
+			// regular seek
             audio->setPosition(clickedPos);
             progressSlider.setValue(proportion, juce::dontSendNotification);
         }
@@ -850,10 +861,10 @@ void PlayerGUI::clearMarkers()
     markerTimes.clear();
     markerBox.updateContent();
     markerBox.repaint();
-    repaint(waveformBounds); // لإزالة الخطوط الخضراء
+    repaint(waveformBounds); 
 }
 
-// تعريف دوال المودل الخاص بالماركرات
+// Marker Model methods
 int PlayerGUI::MarkerModel::getNumRows()
 {
     return gui.markerTimes.size();
@@ -862,14 +873,14 @@ int PlayerGUI::MarkerModel::getNumRows()
 void PlayerGUI::MarkerModel::paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected)
 {
     if (rowIsSelected)
-        g.fillAll(juce::Colours::deepskyblue); // لون مختلف عند الاختيار
+        g.fillAll(juce::Colours::deepskyblue); 
     else
         g.fillAll(juce::Colours::darkgrey);
 
     if (rowNumber < 0 || rowNumber >= gui.markerTimes.size())
         return;
 
-    // جلب الوقت وتنسيقه
+	// time formatting
     double time = gui.markerTimes[rowNumber];
     juce::String timeString = gui.formatTime(time);
     juce::String markerText = "Marker " + juce::String(rowNumber + 1) + " (" + timeString + ")";
@@ -886,9 +897,9 @@ void PlayerGUI::MarkerModel::listBoxItemClicked(int row, const juce::MouseEvent&
     if (gui.audio)
     {
         double time = gui.markerTimes[row];
-        gui.audio->setPosition(time); // القفز للوقت المحدد
+        gui.audio->setPosition(time);
 
-        // التأكد من استمرار التشغيل
+		// make sure playback starts
         if (!gui.audio->isPlaying())
         {
             gui.audio->start();
@@ -920,5 +931,71 @@ void PlayerGUI::PlaylistModel::paintListBoxItem(int rowNumber, juce::Graphics& g
     g.setColour(juce::Colours::white);
     g.drawText(title, 10, 0, width / 2, height, juce::Justification::centredLeft);
     g.drawText(duration, width / 2, 0, width / 2 - 10, height, juce::Justification::centredRight);
+}
+
+// update playlist with new files
+void PlayerGUI::setPlaylist(const std::vector<juce::File>& files, const juce::StringArray& durations)
+{
+    // delete the current playlist
+    playlistFileObjects.clear();
+    playlistFiles.clear();
+    playlistModel->trackDurations.clear();
+    playlistModel->trackTitles.clear();
+
+    if (files.empty())
+    {
+        refreshPlaylistDisplay();
+        return;
+    }
+
+    // add new files
+    for (int i = 0; i < files.size(); ++i)
+    {
+        const auto& f = files[i];
+        if (f.existsAsFile())
+        {
+            juce::String duration = (i < durations.size()) ? durations[i] : "0:00";
+            playlistModel->trackDurations.push_back(duration);
+       
+            TagLib::FileRef ref(f.getFullPathName().toRawUTF8());
+            juce::String displayName;
+
+            if (!ref.isNull() && ref.tag() && ref.tag()->title().length() > 0)
+                displayName = juce::String::fromUTF8(ref.tag()->title().toCString(true));
+            else
+                displayName = f.getFileNameWithoutExtension();
+
+            playlistFiles.add(displayName);
+            playlistFileObjects.push_back(f);
+        }
+    }
+
+    // update display
+    refreshPlaylistDisplay();
+}
+
+void PlayerGUI::updateControlsFromAudio()
+{
+    if (!audio) return;
+
+	// update volume slider and mute button
+    float currentGain = audio->getGain();
+    volumeSlider.setValue(currentGain, juce::dontSendNotification);
+    if (currentGain == 0.0f)
+    {
+        muteButton.setColour(juce::TextButton::buttonColourId, juce::Colours::green);
+        muteButton.setButtonText("Unmute");
+    }
+    else
+    {
+        muteButton.setButtonText("Mute");
+        muteButton.removeColour(juce::TextButton::buttonColourId);
+    }
+
+	// update speed slider
+    speedSlider.setValue(audio->getSpeed(), juce::dontSendNotification);
+
+	// update repeat button
+    repeatButton.setToggleState(audio->isLooping(), juce::dontSendNotification);
 }
 

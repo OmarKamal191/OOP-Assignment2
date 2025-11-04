@@ -201,6 +201,13 @@ void PlayerAudio::setLooping(bool shouldLoop)
         readerSource->setLooping(shouldLoop);
 }
 
+bool PlayerAudio::isLooping() const
+{
+    if (readerSource)
+        return readerSource->isLooping();
+    return false;
+}
+
 void PlayerAudio::setSpeed(double ratio)
 {
     if (ratio < 0.01) ratio = 0.01;
@@ -224,7 +231,7 @@ void PlayerAudio::setRegionLooping(bool shouldLoop, double start, double end)
     if (readerSource)
         readerSource->setLooping(false); 
 
-    // تخزين الحالة والنقاط
+	// store state
     regionLoopingActive = shouldLoop;
 
     if (shouldLoop)
@@ -232,13 +239,13 @@ void PlayerAudio::setRegionLooping(bool shouldLoop, double start, double end)
         loopStart = juce::jmin(start, end);
         loopEnd = juce::jmax(start, end);
 
-        // اجعل نقطة التشغيل الحالية هي البداية إذا كانت خارج المنطقة
+		// make sure current position is within loop
         if (transportSource.getCurrentPosition() < loopStart || transportSource.getCurrentPosition() >= loopEnd)
             transportSource.setPosition(loopStart);
     }
     else
     {
-        // إعادة تعيين النقاط عند إلغاء التفعيل
+		// reset loop points
         loopStart = 0.0;
         loopEnd = 0.0;
     }

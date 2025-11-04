@@ -35,6 +35,7 @@ public:
 	float getGain() const;
 	bool isPlaying() const;
 	void setLooping(bool shouldLoop);
+	bool isLooping() const;
 
 	// Speed control (1.0 = normal) - optional if you kept earlier changes
 	void setSpeed(double ratio);
@@ -52,7 +53,7 @@ public:
 	// kept for compatibility (returns the transport directly)
 	juce::AudioTransportSource* getTransportSource() noexcept { return &transportSource; }
 
-	// New: Region Looping Control (التحكم في تكرار المنطقة)
+	// Region Looping Control
 	void setRegionLooping(bool shouldLoop, double start, double end);
 	bool isRegionLooping() const noexcept { return regionLoopingActive; }
 
