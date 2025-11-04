@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <JuceHeader.h>
 #include "PlayerAudio.h"
 
@@ -27,7 +27,7 @@ public:
 
     void refreshPlaylistDisplay();
 
-    
+    void clearMarkers();
 
 
     // copy of makeIcon - same signature as original
@@ -54,6 +54,12 @@ public:
     juce::DrawableButton fw10Button{ "Add 10s", juce::DrawableButton::ImageFitted };
     juce::DrawableButton bw10Button{ "Sub 10s", juce::DrawableButton::ImageFitted };
     juce::TextButton loopRegionButton{ "Repeat a Track" };
+    juce::TextButton removeSelectedButton{ "Remove Selected" };
+    juce::TextButton clearAllButton{ "Clear All" };
+    juce::TextButton addMarkerButton{ "Add Marker" };
+    juce::TextButton clearMarkersButton{ "clear Markers" };
+	juce::Label MarkerBoxLabel;
+    
 
     std::unique_ptr<juce::DrawablePath> playIcon; // Icon for play
     std::unique_ptr<juce::DrawablePath> pauseButtonIcon; // Icon for pause
@@ -92,6 +98,12 @@ public:
         {
             if (row >= 0 && row < gui.playlistFileObjects.size())
             {
+
+                gui.markerTimes.clear();
+                gui.markerBox.updateContent();
+                gui.markerBox.repaint();
+                gui.repaint(gui.waveformBounds);
+
                 juce::File f = gui.playlistFileObjects[row];
 
                 // حمل الملف
@@ -137,6 +149,20 @@ public:
     };
     std::unique_ptr<PlaylistModel> playlistModel;
 
+    class MarkerModel : public juce::ListBoxModel
+    {
+    public:
+        MarkerModel(PlayerGUI& owner) : gui(owner) {}
+
+        int getNumRows() override;
+        void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+        void listBoxItemClicked(int row, const juce::MouseEvent&) override;
+
+    private:
+        PlayerGUI& gui;
+    };
+    std::unique_ptr<MarkerModel> markerModel;
+
 
 private:
     PlayerAudio* audio = nullptr;
@@ -146,6 +172,9 @@ private:
     std::unique_ptr<juce::AudioThumbnail> thumbnail;
     juce::File lastLoadedFile;
     juce::Rectangle<int> waveformBounds;
+
+    juce::ListBox markerBox;
+    std::vector<double> markerTimes;
 
     // Sleep timer state
     bool sleepTimerActive = false;
