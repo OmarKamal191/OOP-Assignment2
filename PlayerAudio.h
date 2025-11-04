@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <JuceHeader.h>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
@@ -58,6 +58,8 @@ public:
 
 	
 	void updateMetadata(const juce::File& file);
+
+	void unloadFile(); 
 
 
 	// Metadata
