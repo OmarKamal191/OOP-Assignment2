@@ -59,6 +59,8 @@ public:
 	
 	void updateMetadata(const juce::File& file);
 
+	void unloadFile(); 
+
 
 	// Metadata
 	juce::String trackTitle;

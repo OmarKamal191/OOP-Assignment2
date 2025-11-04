@@ -2,7 +2,7 @@
 
 PlayerGUI::PlayerGUI()
 {
-    for (auto* btn : { &loadButton , &restartButton , &stopButton , &muteButton , &loopRegionButton })
+    for (auto* btn : { &loadButton , &restartButton , &stopButton , &muteButton , &loopRegionButton, &removeSelectedButton, &clearAllButton, &addMarkerButton , &clearMarkersButton })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
@@ -106,6 +106,15 @@ PlayerGUI::PlayerGUI()
     playlistBox.setOutlineThickness(1);
     playlistBox.setColour(juce::ListBox::outlineColourId, juce::Colours::grey);
 
+    markerModel = std::make_unique<MarkerModel>(*this);
+    markerBox.setModel(markerModel.get());
+    markerBox.setRowHeight(25);
+    markerBox.setColour(juce::ListBox::backgroundColourId, juce::Colours::black);
+    markerBox.setColour(juce::ListBox::textColourId, juce::Colours::white);
+    markerBox.setOutlineThickness(1);
+    markerBox.setColour(juce::ListBox::outlineColourId, juce::Colours::grey);
+    addAndMakeVisible(markerBox);
+
 
 
     for (auto* btn : { &ppButton , &toEndButton , &toStartButton , &fw10Button , &bw10Button })
@@ -118,7 +127,7 @@ PlayerGUI::PlayerGUI()
 PlayerGUI::~PlayerGUI()
 {
     stopTimer();
-    for (auto* btn : { &loadButton , &restartButton , &stopButton , &muteButton ,&loopRegionButton })
+    for (auto* btn : { &loadButton , &restartButton , &stopButton , &muteButton ,&loopRegionButton, &removeSelectedButton, &clearAllButton, &addMarkerButton , &clearMarkersButton })
         btn->removeListener(this);
 
     // remove Sleep Timer listener
@@ -245,6 +254,24 @@ void PlayerGUI::paint(juce::Graphics& g)
                 g.drawLine((float)endX, (float)waveformBounds.getY(), (float)endX, (float)waveformBounds.getBottom(), 2.0f);   // خط النهاية
             }
 
+            if (total > 0.0 && !markerTimes.empty())
+            {
+                g.setColour(juce::Colours::green); // اللون الأخضر
+
+                auto getX = [&](double seconds)
+                    {
+                        double pos = juce::jlimit(0.0, 1.0, seconds / total);
+                        return waveformBounds.getX() + static_cast<int>(pos * (double)waveformBounds.getWidth());
+                    };
+
+                for (double markerTime : markerTimes)
+                {
+                    int markerX = getX(markerTime);
+                    // ارسم خط أخضر بعرض 2 بكسل
+                    g.drawLine((float)markerX, (float)waveformBounds.getY(), (float)markerX, (float)waveformBounds.getBottom(), 2.0f);
+                }
+            }
+
             // draw current position pointer
             double current = audio ? audio->getCurrentPosition() : 0.0;
             double pos = juce::jlimit(0.0, 1.0, (total > 0.0) ? (current / total) : 0.0);
@@ -268,7 +295,7 @@ void PlayerGUI::paint(juce::Graphics& g)
     g.drawText("Track name", playlistArea.getX() + 5, headerY, 200, 20, juce::Justification::left);
     g.drawText("Duration", playlistArea.getRight() - 120, headerY, 100, 20, juce::Justification::right);
 
-
+    g.drawText("Markers", playlistArea.getX() + 5, headerY+160, 200, 20, juce::Justification::left);
 }
 
 void PlayerGUI::resized()
@@ -330,14 +357,27 @@ void PlayerGUI::resized()
 
     // Place metadata label below waveform
     metadataLabel.setBounds(20, wfY + wfHeight + 10, getWidth() - 40, 30);
-
-	// Place playlist box at the bottom
-    playlistBox.setBounds(20, waveformBounds.getBottom() + 50, getWidth() - 40, 150);
-
    
-    playlistBox.setBounds(20, metadataLabel.getBottom() + 10, getWidth() - 40, 150);
+    // Place playlist management buttons
+    int playlistButtonY = metadataLabel.getBottom() + 10;
+    int playlistButtonWidth = 120;
+    int playlistSpacing = 10;
+    removeSelectedButton.setBounds(340, playlistButtonY, playlistButtonWidth, 30);
+    clearAllButton.setBounds(340 + playlistButtonWidth + playlistSpacing, playlistButtonY, playlistButtonWidth, 30);
 
 
+    addMarkerButton.setBounds(340 + (playlistButtonWidth + playlistSpacing) * 2, playlistButtonY, playlistButtonWidth, 30);
+    
+
+    // Place playlist box at the bottom, below the new buttons
+    playlistBox.setBounds(20, playlistButtonY + 30 + 10, getWidth() - 40, 120);
+
+	// Place marker box below playlist box
+    int markerBoxY = playlistBox.getBottom() + 10;
+    markerBox.setBounds(20, markerBoxY+30, getWidth() - 40, 100);
+
+	// Place clear markers button below marker box
+	clearMarkersButton.setBounds(470 + (playlistButtonWidth + playlistSpacing) * 2, playlistButtonY, playlistButtonWidth, 30);
 }
 
 juce::String PlayerGUI::formatTime(double seconds)
@@ -361,8 +401,7 @@ void PlayerGUI::buttonClicked(juce::Button* button)
                 auto results = fc.getResults();
                 if (results.isEmpty()) return;
 
-                playlistFiles.clear();
-                playlistFileObjects.clear();
+                clearMarkers();
 
                 for (auto& f : results)
                 {
@@ -389,6 +428,65 @@ void PlayerGUI::buttonClicked(juce::Button* button)
                     metadataLabel.setText(playlistFiles[0], juce::dontSendNotification);
                 }
             });
+    }
+
+    // New: Handle Remove Selected Button
+    if (button == &removeSelectedButton)
+    {
+       
+		audio->unloadFile(); 
+       
+        clearMarkers();
+
+        int selectedRow = playlistBox.getSelectedRow();
+
+        // Check if a row is actually selected and is valid
+        if (selectedRow >= 0 && selectedRow < playlistFileObjects.size())
+        {
+            // Remove from all data sources
+            playlistFileObjects.erase(playlistFileObjects.begin() + selectedRow);
+            playlistFiles.remove(selectedRow);
+
+            // Safety check: ensure index is valid for other vectors before erasing
+            if (selectedRow < playlistModel->trackDurations.size())
+                playlistModel->trackDurations.erase(playlistModel->trackDurations.begin() + selectedRow);
+
+            if (selectedRow < playlistModel->trackTitles.size())
+                playlistModel->trackTitles.erase(playlistModel->trackTitles.begin() + selectedRow);
+
+            // Refresh the display
+            refreshPlaylistDisplay();
+            playlistBox.deselectRow(selectedRow); // Deselect row
+        }
+
+        audio->setPosition(0.0);
+
+        // Reset metadata label
+        metadataLabel.setText("", juce::dontSendNotification);
+
+    }
+
+    // New: Handle Clear All Button
+    if (button == &clearAllButton)
+    {
+
+        audio->unloadFile();
+		clearMarkers();
+
+        // Clear all data sources
+        playlistFileObjects.clear();
+        playlistFiles.clear();
+        playlistModel->trackDurations.clear();
+        playlistModel->trackTitles.clear();
+
+        // Refresh the display
+        refreshPlaylistDisplay();
+
+        audio->setPosition(0.0);
+        
+		// Reset metadata label
+		metadataLabel.setText("", juce::dontSendNotification);
+
     }
 
 
@@ -558,6 +656,36 @@ void PlayerGUI::buttonClicked(juce::Button* button)
             audio->setRegionLooping(false, 0.0, 0.0);
         }
     }
+
+    if (button == &addMarkerButton)
+    {
+        if (audio && audio->getReaderSource() != nullptr)
+        {
+            double currentTime = audio->getCurrentPosition();
+
+            // إضافة الماركر
+            markerTimes.push_back(currentTime);
+
+            // (اختياري) ترتيب الماركرات حسب الوقت
+            std::sort(markerTimes.begin(), markerTimes.end());
+
+            // (اختياري) إزالة الماركرات المكررة جداً (بفارق 10 ميللي ثانية)
+            markerTimes.erase(std::unique(markerTimes.begin(), markerTimes.end(),
+                [](double a, double b) { return std::abs(a - b) < 0.01; }),
+                markerTimes.end());
+
+            // تحديث قائمة العرض
+            markerBox.updateContent();
+
+            // إعادة رسم الـ Waveform لإظهار الخط الأخضر
+            repaint(waveformBounds);
+        }
+    }
+    
+    if (button == &clearMarkersButton)
+    {
+        clearMarkers();
+	}
 }
 
 void PlayerGUI::sliderValueChanged(juce::Slider* slider)
@@ -715,6 +843,60 @@ void PlayerGUI::mouseDown(const juce::MouseEvent& event)
     }
 
 }
+
+
+void PlayerGUI::clearMarkers()
+{
+    markerTimes.clear();
+    markerBox.updateContent();
+    markerBox.repaint();
+    repaint(waveformBounds); // لإزالة الخطوط الخضراء
+}
+
+// تعريف دوال المودل الخاص بالماركرات
+int PlayerGUI::MarkerModel::getNumRows()
+{
+    return gui.markerTimes.size();
+}
+
+void PlayerGUI::MarkerModel::paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected)
+{
+    if (rowIsSelected)
+        g.fillAll(juce::Colours::deepskyblue); // لون مختلف عند الاختيار
+    else
+        g.fillAll(juce::Colours::darkgrey);
+
+    if (rowNumber < 0 || rowNumber >= gui.markerTimes.size())
+        return;
+
+    // جلب الوقت وتنسيقه
+    double time = gui.markerTimes[rowNumber];
+    juce::String timeString = gui.formatTime(time);
+    juce::String markerText = "Marker " + juce::String(rowNumber + 1) + " (" + timeString + ")";
+
+    g.setColour(juce::Colours::white);
+    g.drawText(markerText, 10, 0, width - 20, height, juce::Justification::centredLeft);
+}
+
+void PlayerGUI::MarkerModel::listBoxItemClicked(int row, const juce::MouseEvent&)
+{
+    if (row < 0 || row >= gui.markerTimes.size())
+        return;
+
+    if (gui.audio)
+    {
+        double time = gui.markerTimes[row];
+        gui.audio->setPosition(time); // القفز للوقت المحدد
+
+        // التأكد من استمرار التشغيل
+        if (!gui.audio->isPlaying())
+        {
+            gui.audio->start();
+            gui.ppButton.setImages(gui.pauseButtonIcon.get());
+        }
+    }
+}
+
 
 void PlayerGUI::refreshPlaylistDisplay()
 {
