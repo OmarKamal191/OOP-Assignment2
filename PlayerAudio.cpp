@@ -1,4 +1,4 @@
-﻿#include "PlayerAudio.h"
+#include "PlayerAudio.h"
 
 PlayerAudio::PlayerAudio()
 {
@@ -267,3 +267,17 @@ void PlayerAudio::updateMetadata(const juce::File& file)
 
 
 
+// New function to unload audio and clear metadata
+void PlayerAudio::unloadFile()
+{
+    transportSource.stop();
+    transportSource.setSource(nullptr);
+    readerSource.reset();
+
+    // Clear metadata and current file
+    currentFile = juce::File{};
+    trackTitle.clear();
+    trackArtist.clear();
+    trackAlbum.clear();
+    trackDuration.clear();
+}
