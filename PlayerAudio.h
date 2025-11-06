@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <JuceHeader.h>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
@@ -20,7 +20,7 @@ public:
 	// Direct loading without file chooser (for internal use)
 	void loadFileDirect(const juce::File& file);
 
-
+	
 
 
 
@@ -57,10 +57,10 @@ public:
 	void setRegionLooping(bool shouldLoop, double start, double end);
 	bool isRegionLooping() const noexcept { return regionLoopingActive; }
 
-
+	
 	void updateMetadata(const juce::File& file);
 
-	void unloadFile();
+	void unloadFile(); 
 
 
 	// Metadata
