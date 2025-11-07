@@ -2,205 +2,304 @@
 
 MainComponent::MainComponent()
 {
-  // connect GUI and Audio
-  addAndMakeVisible(gui);
-  gui.setAudio(&audio);
+    // Player 1
+    addAndMakeVisible(gui1);
+    gui1.setAudio(&audio1); 
 
-  setSize(500, 250);
-  setAudioChannels(0, 2);
+    // Player 2
+    addAndMakeVisible(gui2);
+    gui2.setAudio(&audio2); 
 
-  // The GUI already registered listeners for its controls.
+    setSize(500, 250);
+    setAudioChannels(0, 2);
 
+    // ????? ???????? ??? ??? Mixer
+    mixerSource.addInputSource(audio1.getAudioSource(), false);
+    mixerSource.addInputSource(audio2.getAudioSource(), false);
 
+    // --- ??? ??? ????? ?????? ??? Crossfader ---
+    addAndMakeVisible(crossfader);
+    crossfader.setSliderStyle(juce::Slider::LinearHorizontal);
+    crossfader.setRange(0.0, 1.0, 0.01); // 0.0 = Player 1, 1.0 = Player 2
+    crossfader.setValue(0.5); // ???? ?? ???????
+    crossfader.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    crossfader.addListener(this);
 
+    // ???? MainComponent ????? ????????? ????? ?????
+    gui1.volumeSlider.addListener(this);
+    gui2.volumeSlider.addListener(this);
 
-  juce::PropertiesFile::Options options;
-  options.applicationName = "Simple Audio Player";
-  options.filenameSuffix = ".xml";
-  options.folderName = "SimpleAudioPlayer";
-  options.osxLibrarySubFolder = "Application Support";
+    
+    juce::PropertiesFile::Options options;
+    options.applicationName = "Simple Audio Player";
+    options.filenameSuffix = ".xml"; 
+    options.folderName = "SimpleAudioPlayer";
+    options.osxLibrarySubFolder = "Application Support";
 
-  appProperties.setStorageParameters(options);
+    appProperties.setStorageParameters(options);
 
+   
+    loadState();
 
-  loadState();
+    // --- ??? ??? ?????? ?? ????? ????????????? ---
+    updateMix();
+
 }
 
 MainComponent::~MainComponent()
 {
-  saveState();
+    saveState();
 
-  shutdownAudio();
+    // --- ??? ??? ????? ?????? ????????? ---
+    gui1.volumeSlider.removeListener(this);
+    gui2.volumeSlider.removeListener(this);
+
+    // (!!!) ??????: ???? ?? ????? ??????? ?? ??? mixer
+    mixerSource.removeAllInputs();
+
+    shutdownAudio();
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
-  audio.prepareToPlay(samplesPerBlockExpected, sampleRate);
+    // ??? ???????? ???? Mixer
+    audio1.prepareToPlay(samplesPerBlockExpected, sampleRate);
+    audio2.prepareToPlay(samplesPerBlockExpected, sampleRate);
+    mixerSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
-  if (auto* source = audio.getAudioSource())
-    source->getNextAudioBlock(bufferToFill);
-  else
-    bufferToFill.clearActiveBufferRegion();
+    // ???? ??? Mixer ???? ??? ?????
+    mixerSource.getNextAudioBlock(bufferToFill);
 }
 
 void MainComponent::releaseResources()
 {
-  audio.releaseResources();
+    // ??? ????? ???????? ???? Mixer
+    mixerSource.releaseResources();
+    audio1.releaseResources();
+    audio2.releaseResources();
 }
 
 void MainComponent::paint(juce::Graphics& g)
 {
-  gui.paint(g); // delegate painting to gui (keeps same appearance)
+    // (gui.paint(g);) // ?? ??? ????? ????
+     // ????? ?? ???? ???? ??????? ???. ???????? ????? ?????
+    g.fillAll(juce::Colour::fromRGB(30, 30, 30));
 }
 
 void MainComponent::resized()
 {
-  gui.setBounds(getLocalBounds());
-}
+    // (gui.setBounds(getLocalBounds());) // ?? ??? ????? ????
 
-void MainComponent::buttonClicked(juce::Button* button)
-{
-  // forward to gui
-  gui.buttonClicked(button);
+     // ????? ?????? ????? (??? ???? ?? gui1? ???? ???? ?? gui2)
+    auto bounds = getLocalBounds();
+    auto padding = 10;
+
+    bounds.removeFromBottom(10);
+
+    // ???? ????? ??? Crossfader ?? ?????? ?????
+    auto crossfaderArea = bounds.removeFromBottom(40).reduced(padding);
+
+    // ???? bounds ????? ??? ??? ??????? ???????? ????????
+    auto leftHalf = bounds.removeFromLeft(bounds.getWidth() / 2);
+    gui1.setBounds(leftHalf.reduced(padding));
+    gui2.setBounds(bounds.reduced(padding)); // bounds ????? ????? ??????
+
+    // ?? ??? Crossfader ?? ??????? ???????
+    crossfader.setBounds(crossfaderArea);
+
 }
 
 void MainComponent::sliderValueChanged(juce::Slider* slider)
 {
-  gui.sliderValueChanged(slider);
+    if (slider == &crossfader || slider == &gui1.volumeSlider || slider == &gui2.volumeSlider)
+    {
+        updateMix();
+    }
 }
 
-void MainComponent::timerCallback()
+// ??? ?? ?????? ???????? ?????
+void MainComponent::updateMix()
 {
-  gui.timerCallback();
+    // ???? ??? ??? ??????????
+    float vol1 = (float)gui1.volumeSlider.getValue();
+    float vol2 = (float)gui2.volumeSlider.getValue();
+    float crossfadePos = (float)crossfader.getValue(); // (0.0 = ????, 1.0 = ????)
+
+    // ???? ????? "Constant Power" (??? ???? ??????)
+    // ??? ???? ?????? ????? ?? ???????
+    auto angle = crossfadePos * juce::MathConstants<float>::halfPi; // (0.0 to pi/2)
+    float gain1 = vol1 * std::cos(angle);
+    float gain2 = vol2 * std::sin(angle);
+
+    // ???? ????? ??????? ??? ????
+    audio1.setGain(gain1);
+    audio2.setGain(gain2);
 }
 
-juce::String MainComponent::formatTime(double seconds)
-{
-  int mins = static_cast<int>(seconds / 60);
-  int secs = static_cast<int>(seconds) % 60;
-  return juce::String(mins) + ":" + (secs < 10 ? "0" : "") + juce::String(secs);
-}
+
+
 
 void MainComponent::saveState()
 {
-  // get user settings file
-  juce::PropertiesFile* props = appProperties.getUserSettings();
-  if (props == nullptr)
-    return;
+    juce::PropertiesFile* props = appProperties.getUserSettings();
+    if (props == nullptr)
+        return;
 
-  // save playlist
-  const auto& playlist = gui.getPlaylistFileObjects();
-  juce::StringArray playlistPaths;
-  for (const auto& file : playlist)
-  {
-    playlistPaths.add(file.getFullPathName());
-  }
+    // --- ??? ???? ?????? 1 (Player 1) ---
+    const auto& playlist1 = gui1.getPlaylistFileObjects();
+    juce::StringArray playlistPaths1;
+    for (const auto& file : playlist1)
+        playlistPaths1.add(file.getFullPathName());
+    props->setValue("playlist1", playlistPaths1.joinIntoString("\n")); // <-- ???? "1"
 
-  props->setValue("playlist", playlistPaths.joinIntoString("\n"));
+    const auto& durationsVector1 = gui1.playlistModel->trackDurations;
+    juce::StringArray durationsArray1;
+    for (const auto& dur : durationsVector1)
+        durationsArray1.add(dur);
+    props->setValue("playlistDurations1", durationsArray1.joinIntoString("\n")); // <-- ???? "1"
 
-  const auto& durationsVector = gui.playlistModel->trackDurations;
+    juce::File currentFile1 = audio1.getCurrentFile();
+    if (currentFile1.existsAsFile())
+    {
+        props->setValue("lastFile1", currentFile1.getFullPathName());
+        props->setValue("lastPosition1", audio1.getCurrentPosition());
+    }
+    else
+    {
+        props->removeValue("lastFile1");
+        props->removeValue("lastPosition1");
+    }
 
-  juce::StringArray durationsArray;
-  for (const auto& dur : durationsVector)
-  {
-    durationsArray.add(dur);
-  }
+    props->setValue("volume1", gui1.volumeSlider.getValue());
+    props->setValue("speed1", audio1.getSpeed());
+    props->setValue("repeat1", audio1.isLooping());
 
-  // save durations
-  props->setValue("playlistDurations", durationsArray.joinIntoString("\n"));
+    // --- ??? ???? ?????? 2 (Player 2) ---
+    const auto& playlist2 = gui2.getPlaylistFileObjects();
+    juce::StringArray playlistPaths2;
+    for (const auto& file : playlist2)
+        playlistPaths2.add(file.getFullPathName());
+    props->setValue("playlist2", playlistPaths2.joinIntoString("\n")); // <-- ???? "2"
 
-  // save last file and position
-  juce::File currentFile = audio.getCurrentFile();
-  if (currentFile.existsAsFile())
-  {
-    props->setValue("lastFile", currentFile.getFullPathName());
-    props->setValue("lastPosition", audio.getCurrentPosition());
-  }
-  else
-  {
-    props->removeValue("lastFile");
-    props->removeValue("lastPosition");
-  }
+    const auto& durationsVector2 = gui2.playlistModel->trackDurations;
+    juce::StringArray durationsArray2;
+    for (const auto& dur : durationsVector2)
+        durationsArray2.add(dur);
+    props->setValue("playlistDurations2", durationsArray2.joinIntoString("\n")); // <-- ???? "2"
 
-  // save settings (volume, speed, repeat)
-  props->setValue("volume", audio.getGain());
-  props->setValue("speed", audio.getSpeed());
-  props->setValue("repeat", audio.isLooping());
+    juce::File currentFile2 = audio2.getCurrentFile();
+    if (currentFile2.existsAsFile())
+    {
+        props->setValue("lastFile2", currentFile2.getFullPathName());
+        props->setValue("lastPosition2", audio2.getCurrentPosition());
+    }
+    else
+    {
+        props->removeValue("lastFile2");
+        props->removeValue("lastPosition2");
+    }
 
-  // save to disk
-  appProperties.saveIfNeeded();
+    props->setValue("volume2", gui2.volumeSlider.getValue());
+    props->setValue("speed2", audio2.getSpeed());
+    props->setValue("repeat2", audio2.isLooping());
+
+    // --- ??? ??? ????? ???? ???? ??? Crossfader ---
+    props->setValue("crossfader", crossfader.getValue());
+
+    appProperties.saveIfNeeded();
 }
 
 
 void MainComponent::loadState()
 {
-  juce::PropertiesFile* props = appProperties.getUserSettings();
-  if (props == nullptr)
-    return;
+    juce::PropertiesFile* props = appProperties.getUserSettings();
+    if (props == nullptr)
+        return;
 
-  // get saved settings
-  // use default values if not found
-  float volume = (float)props->getDoubleValue("volume", 0.5);
-  audio.setGain(volume);
+    // --- ????? ???? ?????? 1 (Player 1) ---
+    float volume1 = (float)props->getDoubleValue("volume1", 0.5);
+    gui1.volumeSlider.setValue(volume1, juce::dontSendNotification);
+    double speed1 = props->getDoubleValue("speed1", 1.0);
+    audio1.setSpeed(speed1);
+    bool repeat1 = props->getBoolValue("repeat1", false);
+    audio1.setLooping(repeat1);
 
-  double speed = props->getDoubleValue("speed", 1.0);
-  audio.setSpeed(speed);
 
-  bool repeat = props->getBoolValue("repeat", false);
-  audio.setLooping(repeat);
+    juce::StringArray playlistPaths1;
+    playlistPaths1.addLines(props->getValue("playlist1", ""));
+    juce::StringArray playlistDurations1;
+    playlistDurations1.addLines(props->getValue("playlistDurations1", ""));
+    std::vector<juce::File> playlistFiles1;
+    for (const auto& path : playlistPaths1)
+        if (path.isNotEmpty()) playlistFiles1.push_back(juce::File(path));
+    gui1.setPlaylist(playlistFiles1, playlistDurations1); // ????? ????? 1
 
-  // get GUI to reflect audio settings
-  gui.updateControlsFromAudio();
-
-  // get saved playlist
-  juce::StringArray playlistPaths;
-  playlistPaths.addLines(props->getValue("playlist", ""));
-
-  juce::StringArray playlistDurations;
-  playlistDurations.addLines(props->getValue("playlistDurations", ""));
-
-  std::vector<juce::File> playlistFiles;
-  for (const auto& path : playlistPaths)
-  {
-    if (path.isNotEmpty())
-      playlistFiles.push_back(juce::File(path));
-  }
-
-  // set playlist in GUI
-  gui.setPlaylist(playlistFiles, playlistDurations);
-
-  // get last loaded file and position
-  juce::String lastFilePath = props->getValue("lastFile", "");
-  if (lastFilePath.isNotEmpty())
-  {
-    juce::File lastFile(lastFilePath);
-    if (lastFile.existsAsFile())
+    juce::String lastFilePath1 = props->getValue("lastFile1", "");
+    if (lastFilePath1.isNotEmpty())
     {
-      audio.loadFileDirect(lastFile);
-
-      // set position
-      double lastPosition = props->getDoubleValue("lastPosition", 0.0);
-      audio.setPosition(lastPosition);
-
-      // call onFileLoaded if set
-      if (audio.onFileLoaded)
-        audio.onFileLoaded();
-
-      // update metadata label in GUI
-      double total = audio.getTotalLengthSeconds();
-      if (total > 0.0)
-      {
-        gui.progressSlider.setValue(lastPosition / total, juce::dontSendNotification);
-        gui.currentTimeLabel.setText(gui.formatTime(lastPosition), juce::dontSendNotification);
-        gui.totalTimeLabel.setText(gui.formatTime(total), juce::dontSendNotification);
-      }
-
-      // set play/pause button to pause icon
-      gui.ppButton.setImages(gui.playIcon.get());
+        juce::File lastFile1(lastFilePath1);
+        if (lastFile1.existsAsFile())
+        {
+            audio1.loadFileDirect(lastFile1);
+            double lastPosition1 = props->getDoubleValue("lastPosition1", 0.0);
+            audio1.setPosition(lastPosition1);
+            if (audio1.onFileLoaded) audio1.onFileLoaded();
+            // ... (???? ??? ????? ??????? 1) ...
+            double total1 = audio1.getTotalLengthSeconds();
+            if (total1 > 0.0)
+            {
+                gui1.progressSlider.setValue(lastPosition1 / total1, juce::dontSendNotification);
+                gui1.currentTimeLabel.setText(gui1.formatTime(lastPosition1), juce::dontSendNotification);
+                gui1.totalTimeLabel.setText(gui1.formatTime(total1), juce::dontSendNotification);
+            }
+            gui1.ppButton.setImages(gui1.playIcon.get());
+        }
     }
-  }
+
+
+    // --- ????? ???? ?????? 2 (Player 2) ---
+    float volume2 = (float)props->getDoubleValue("volume2", 0.5);
+    gui2.volumeSlider.setValue(volume2, juce::dontSendNotification);
+    double speed2 = props->getDoubleValue("speed2", 1.0);
+    audio2.setSpeed(speed2);
+    bool repeat2 = props->getBoolValue("repeat2", false);
+    audio2.setLooping(repeat2);
+
+    juce::StringArray playlistPaths2;
+    playlistPaths2.addLines(props->getValue("playlist2", ""));
+    juce::StringArray playlistDurations2;
+    playlistDurations2.addLines(props->getValue("playlistDurations2", ""));
+    std::vector<juce::File> playlistFiles2;
+    for (const auto& path : playlistPaths2)
+        if (path.isNotEmpty()) playlistFiles2.push_back(juce::File(path));
+    gui2.setPlaylist(playlistFiles2, playlistDurations2); // ????? ????? 2
+
+    juce::String lastFilePath2 = props->getValue("lastFile2", "");
+    if (lastFilePath2.isNotEmpty())
+    {
+        juce::File lastFile2(lastFilePath2);
+        if (lastFile2.existsAsFile())
+        {
+            audio2.loadFileDirect(lastFile2);
+            double lastPosition2 = props->getDoubleValue("lastPosition2", 0.0);
+            audio2.setPosition(lastPosition2);
+            if (audio2.onFileLoaded) audio2.onFileLoaded();
+            // ... (???? ??? ????? ??????? 2) ...
+            double total2 = audio2.getTotalLengthSeconds();
+            if (total2 > 0.0)
+            {
+                gui2.progressSlider.setValue(lastPosition2 / total2, juce::dontSendNotification);
+                gui2.currentTimeLabel.setText(gui2.formatTime(lastPosition2), juce::dontSendNotification);
+                gui2.totalTimeLabel.setText(gui2.formatTime(total2), juce::dontSendNotification);
+            }
+            gui2.ppButton.setImages(gui2.playIcon.get());
+        }
+    }
+
+    crossfader.setValue(props->getDoubleValue("crossfader", 0.5));
+    updateMix();
 }
 

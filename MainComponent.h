@@ -4,7 +4,8 @@
 #include "PlayerGUI.h"
 #include "PlayerAudio.h"
 
-class MainComponent : public juce::AudioAppComponent
+class MainComponent : public juce::AudioAppComponent,
+	public juce::Slider::Listener
 {
 public:
 	MainComponent();
@@ -20,19 +21,28 @@ public:
 	void paint(juce::Graphics& g) override;
 	void resized() override;
 
-	// keep these function names (MainComponent will forward to gui)
-	void buttonClicked(juce::Button* button);
-	void sliderValueChanged(juce::Slider* slider);
-	void timerCallback();
+	void sliderValueChanged(juce::Slider* slider) override;
 
-	juce::String formatTime(double seconds);
-
+	
 private:
-	PlayerGUI gui;
-	PlayerAudio audio;
+	// Player 1
+	PlayerGUI gui1;
+	PlayerAudio audio1;
+
+	// Player 2
+	PlayerGUI gui2;
+	PlayerAudio audio2;
+
+	// Mixer ???? ???????
+	juce::MixerAudioSource mixerSource;
+
+	// -- ??? ??? ???????? ?????? --
+	juce::Slider crossfader;
 
 	void saveState();
 	void loadState();
+
+	void updateMix();
 
 	juce::ApplicationProperties appProperties;
 
