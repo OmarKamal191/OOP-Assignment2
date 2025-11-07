@@ -33,10 +33,8 @@ private:
 	PlayerGUI gui2;
 	PlayerAudio audio2;
 
-	// Mixer ???? ???????
 	juce::MixerAudioSource mixerSource;
 
-	// -- ??? ??? ???????? ?????? --
 	juce::Slider crossfader;
 
 	void saveState();
@@ -48,3 +46,4 @@ private:
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
+
