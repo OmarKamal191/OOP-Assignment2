@@ -23,7 +23,7 @@ public:
 
 	void sliderValueChanged(juce::Slider* slider) override;
 
-	
+
 private:
 	// Player 1
 	PlayerGUI gui1;
@@ -33,10 +33,10 @@ private:
 	PlayerGUI gui2;
 	PlayerAudio audio2;
 
-	// Mixer ???? ???????
+	// Mixer Audio Source: Combines the output of Player 1 and Player 2.
 	juce::MixerAudioSource mixerSource;
 
-	// -- ??? ??? ???????? ?????? --
+	// -- Crossfader Slider: Controls the blend between Player 1 and Player 2. --
 	juce::Slider crossfader;
 
 	void saveState();
