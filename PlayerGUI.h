@@ -112,6 +112,7 @@ public:
                 gui.markerBox.repaint();
                 gui.repaint(gui.waveformBounds);
 
+				// select the file
                 juce::File f = gui.playlistFileObjects[row];
 
 				// load the selected file
@@ -162,8 +163,13 @@ public:
     public:
         MarkerModel(PlayerGUI& owner) : gui(owner) {}
 
+		// Returns the number of rows in the marker list
         int getNumRows() override;
+
+		// Paints each item in the marker list
         void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
+
+		// Handles clicks on marker list items
         void listBoxItemClicked(int row, const juce::MouseEvent&) override;
 
     private:

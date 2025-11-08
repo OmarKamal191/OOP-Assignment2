@@ -228,7 +228,7 @@ void PlayerGUI::paint(juce::Graphics& g)
         double total = audio ? audio->getTotalLengthSeconds() : 0.0;
         if (total > 0.0)
         {
-            // السطر الجديد (يرسم قناة واحدة مدمجة)
+			// draw waveform
             thumbnail->drawChannel(g, waveformBounds.reduced(4), 0.0, total, 0, 1.0f);
 
             // Draw Loop Region Markers
@@ -267,6 +267,7 @@ void PlayerGUI::paint(juce::Graphics& g)
 
                 for (double markerTime : markerTimes)
                 {
+					// calculate x position
                     int markerX = getX(markerTime);
 					// draw marker line
                     g.drawLine((float)markerX, (float)waveformBounds.getY(), (float)markerX, (float)waveformBounds.getBottom(), 2.0f);
@@ -346,8 +347,8 @@ void PlayerGUI::resized()
     int yPos = area.getY() + 50;
 
     ppButton.setBounds(startX + smallButtonWidth + spacingBetween, yPos, smallButtonWidth, smallButtonHeight);
-    toEndButton.setBounds(startX + (smallButtonWidth + spacingBetween) * 3 + 20, yPos, smallButtonWidth, smallButtonHeight);
-    toStartButton.setBounds(startX - (smallButtonWidth + spacingBetween) - 20, yPos, smallButtonWidth, smallButtonHeight);
+    toEndButton.setBounds(startX + (smallButtonWidth + spacingBetween) * 3 , yPos, smallButtonWidth, smallButtonHeight);
+    toStartButton.setBounds(startX - (smallButtonWidth + spacingBetween) , yPos, smallButtonWidth, smallButtonHeight);
     bw10Button.setBounds(startX, yPos, smallButtonWidth, smallButtonHeight);
     fw10Button.setBounds(startX + (smallButtonWidth + spacingBetween) * 2, yPos, smallButtonWidth, smallButtonHeight);
 
@@ -403,6 +404,7 @@ void PlayerGUI::buttonClicked(juce::Button* button)
 
                 for (auto& f : results)
                 {
+					// Get duration 
                     juce::String durationString = "0:00";
                     if (auto* formatManager = audio->getFormatManager())
                     {
@@ -438,7 +440,7 @@ void PlayerGUI::buttonClicked(juce::Button* button)
             });
     }
 
-    // New: Handle Remove Selected Button
+ 
     if (button == &removeSelectedButton)
     {
        
@@ -476,7 +478,6 @@ void PlayerGUI::buttonClicked(juce::Button* button)
 
     }
 
-    // New: Handle Clear All Button
     if (button == &clearAllButton)
     {
 
@@ -593,7 +594,6 @@ void PlayerGUI::buttonClicked(juce::Button* button)
         }
     }
 
-    // Sleep Timer button handling
     if (button == &sleepTimerButton)
     {
         juce::PopupMenu menu;
@@ -633,7 +633,7 @@ void PlayerGUI::buttonClicked(juce::Button* button)
                 }
             });
     }
-    // Loop Region button 
+
     if (button == &loopRegionButton)
     {
         if (!audio->getReaderSource())
@@ -896,7 +896,10 @@ void PlayerGUI::MarkerModel::listBoxItemClicked(int row, const juce::MouseEvent&
 
     if (gui.audio)
     {
+		// seek to marker time
         double time = gui.markerTimes[row];
+
+		// jump to marker time
         gui.audio->setPosition(time);
 
 		// make sure playback starts

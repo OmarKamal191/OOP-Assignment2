@@ -5,7 +5,8 @@
 #include "PlayerAudio.h"
 
 class MainComponent : public juce::AudioAppComponent,
-	public juce::Slider::Listener
+	public juce::Slider::Listener,
+	public juce::Button::Listener
 {
 public:
 	MainComponent();
@@ -22,7 +23,7 @@ public:
 	void resized() override;
 
 	void sliderValueChanged(juce::Slider* slider) override;
-
+	void buttonClicked(juce::Button* button) override;
 	
 private:
 	// Player 1
@@ -33,9 +34,11 @@ private:
 	PlayerGUI gui2;
 	PlayerAudio audio2;
 
+	// Mixer 
 	juce::MixerAudioSource mixerSource;
 
-	juce::Slider crossfader;
+	// Mixer Button
+	juce::TextButton MixerButton;
 
 	void saveState();
 	void loadState();

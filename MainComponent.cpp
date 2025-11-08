@@ -1,4 +1,4 @@
-#include "MainComponent.h"
+﻿#include "MainComponent.h"
 
 MainComponent::MainComponent()
 {
@@ -13,15 +13,16 @@ MainComponent::MainComponent()
     setSize(500, 250);
     setAudioChannels(0, 2);
 
+	// Add audio1 sources to mixer
     mixerSource.addInputSource(audio1.getAudioSource(), false);
+
+	// Add audio2 sources to mixer
     mixerSource.addInputSource(audio2.getAudioSource(), false);
 
-    addAndMakeVisible(crossfader);
-    crossfader.setSliderStyle(juce::Slider::LinearHorizontal);
-    crossfader.setRange(0.0, 1.0, 0.01); // 0.0 = Player 1, 1.0 = Player 2
-    crossfader.setValue(0.5); 
-    crossfader.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    crossfader.addListener(this);
+    // Mixer Button
+    addAndMakeVisible(MixerButton);
+    MixerButton.setButtonText("Mixer");
+    MixerButton.addListener(this);
 
     gui1.volumeSlider.addListener(this);
     gui2.volumeSlider.addListener(this);
@@ -52,17 +53,23 @@ MainComponent::~MainComponent()
     mixerSource.removeAllInputs();
 
     shutdownAudio();
+
+    MixerButton.removeListener(this);
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
+	// Prepare individual audio sources
     audio1.prepareToPlay(samplesPerBlockExpected, sampleRate);
     audio2.prepareToPlay(samplesPerBlockExpected, sampleRate);
+
+	// Prepare mixer source
     mixerSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
+	// Get mixed audio from mixer source
     mixerSource.getNextAudioBlock(bufferToFill);
 }
 
@@ -81,27 +88,60 @@ void MainComponent::paint(juce::Graphics& g)
 
 void MainComponent::resized()
 {
+	// set fixed widths and heights
+    const int fixedPlayerWidth = 700; 
+    const int buttonWidth = 100;      
+    const int buttonHeight = 40;      
+    const int topBottomPadding = 10;  
 
-    auto bounds = getLocalBounds();
-    auto padding = 10;
+	// Take the bounds and reduce for padding
+    auto bounds = getLocalBounds().reduced(0, topBottomPadding);
 
-    bounds.removeFromBottom(10);
+	// calculate total content width
+    int totalContentWidth = (fixedPlayerWidth * 2) + buttonWidth;
 
-    auto crossfaderArea = bounds.removeFromBottom(40).reduced(padding);
+	// calculate starting x position to center content
+    int contentX = (bounds.getWidth() - totalContentWidth) / 2;
 
-    auto leftHalf = bounds.removeFromLeft(bounds.getWidth() / 2);
-    gui1.setBounds(leftHalf.reduced(padding));
-    gui2.setBounds(bounds.reduced(padding)); 
+	// Make a rectangle for the content area
+    juce::Rectangle<int> contentArea(contentX, bounds.getY(), totalContentWidth, bounds.getHeight());
 
-    crossfader.setBounds(crossfaderArea);
+	// Place Player 1 (lift)
+    gui1.setBounds(contentArea.removeFromLeft(fixedPlayerWidth));
 
+	// Place Mixer Button (middle)
+    MixerButton.setBounds(contentArea.removeFromLeft(buttonWidth).removeFromTop(buttonHeight));
+
+    // Place Player 2 (right)
+    gui2.setBounds(contentArea);
 }
 
 void MainComponent::sliderValueChanged(juce::Slider* slider)
 {
-    if (slider == &crossfader || slider == &gui1.volumeSlider || slider == &gui2.volumeSlider)
+    if (slider == &gui1.volumeSlider || slider == &gui2.volumeSlider)
     {
         updateMix();
+    }
+}
+
+
+void MainComponent::buttonClicked(juce::Button* button)
+{
+    if (button == &MixerButton)
+    {
+        audio1.restart();
+        audio2.restart();
+
+        if (gui1.pauseButtonIcon.get()) 
+        {
+            gui1.ppButton.setImages(gui1.pauseButtonIcon.get());
+        }
+
+        if (gui2.pauseButtonIcon.get()) 
+        {
+            gui2.ppButton.setImages(gui2.pauseButtonIcon.get());
+        }
+       
     }
 }
 
@@ -109,32 +149,33 @@ void MainComponent::updateMix()
 {
     float vol1 = (float)gui1.volumeSlider.getValue();
     float vol2 = (float)gui2.volumeSlider.getValue();
-    float crossfadePos = (float)crossfader.getValue();
 
-
-    auto angle = crossfadePos * juce::MathConstants<float>::halfPi; // (0.0 to pi/2)
-    float gain1 = vol1 * std::cos(angle);
-    float gain2 = vol2 * std::sin(angle);
-
-    audio1.setGain(gain1);
-    audio2.setGain(gain2);
+	// set gains
+    audio1.setGain(vol1);
+    audio2.setGain(vol2);
 }
-
 
 
 
 void MainComponent::saveState()
 {
+	// Player 1
     juce::PropertiesFile* props = appProperties.getUserSettings();
     if (props == nullptr)
         return;
 
+	// get playlist files for Player 1
     const auto& playlist1 = gui1.getPlaylistFileObjects();
     juce::StringArray playlistPaths1;
+
+	// store file paths in string array
     for (const auto& file : playlist1)
         playlistPaths1.add(file.getFullPathName());
+
+	// save playlist paths as a single string with newlines
     props->setValue("playlist1", playlistPaths1.joinIntoString("\n")); 
 
+	// get track durations for Player 1
     const auto& durationsVector1 = gui1.playlistModel->trackDurations;
     juce::StringArray durationsArray1;
     for (const auto& dur : durationsVector1)
@@ -157,7 +198,7 @@ void MainComponent::saveState()
     props->setValue("speed1", audio1.getSpeed());
     props->setValue("repeat1", audio1.isLooping());
 
-    // --- ??? ???? ?????? 2 (Player 2) ---
+    // Player 2
     const auto& playlist2 = gui2.getPlaylistFileObjects();
     juce::StringArray playlistPaths2;
     for (const auto& file : playlist2)
@@ -186,7 +227,7 @@ void MainComponent::saveState()
     props->setValue("speed2", audio2.getSpeed());
     props->setValue("repeat2", audio2.isLooping());
 
-    props->setValue("crossfader", crossfader.getValue());
+   
 
     appProperties.saveIfNeeded();
 }
@@ -198,23 +239,33 @@ void MainComponent::loadState()
     if (props == nullptr)
         return;
 
+	// Load Player 1 state
     float volume1 = (float)props->getDoubleValue("volume1", 0.5);
     gui1.volumeSlider.setValue(volume1, juce::dontSendNotification);
+
+	// load speed and repeat
     double speed1 = props->getDoubleValue("speed1", 1.0);
     audio1.setSpeed(speed1);
     bool repeat1 = props->getBoolValue("repeat1", false);
     audio1.setLooping(repeat1);
 
-
+	// load playlist
     juce::StringArray playlistPaths1;
     playlistPaths1.addLines(props->getValue("playlist1", ""));
+
+	// load durations
     juce::StringArray playlistDurations1;
     playlistDurations1.addLines(props->getValue("playlistDurations1", ""));
+
+	// convert paths to File objects
     std::vector<juce::File> playlistFiles1;
     for (const auto& path : playlistPaths1)
         if (path.isNotEmpty()) playlistFiles1.push_back(juce::File(path));
+
+	// set playlist in GUI
     gui1.setPlaylist(playlistFiles1, playlistDurations1); 
 
+	// load last file and position if available
     juce::String lastFilePath1 = props->getValue("lastFile1", "");
     if (lastFilePath1.isNotEmpty())
     {
@@ -274,7 +325,7 @@ void MainComponent::loadState()
         }
     }
 
-    crossfader.setValue(props->getDoubleValue("crossfader", 0.5));
+    
     updateMix();
 }
 
